@@ -1,0 +1,38 @@
+# Local:  docker compose --profile local up --build
+# Prod:   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+services:
+  postgres:
+    image: postgres:16-alpine
+    profiles: ["local"]
+    environment:
+      POSTGRES_USER: chordb
+      POSTGRES_PASSWORD: chordb
+      POSTGRES_DB: chordb
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chordb -d chordb"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file: .env
+    environment:
+      # Inside the compose network the database host is "postgres".
+      DATABASE_URL: postgresql+asyncpg://chordb:chordb@postgres:5432/chordb
+    ports:
+      - "127.0.0.1:8001:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+        required: false
+    restart: unless-stopped
+
+volumes:
+  pgdata:
