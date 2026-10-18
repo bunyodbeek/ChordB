@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import BigInteger, DateTime, Enum, String, Text, func, text
+from sqlalchemy import BigInteger, DateTime, Enum, ForeignKey, Index, String, Text, func, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -9,9 +9,33 @@ class Base(DeclarativeBase):
     pass
 
 
+def _str_enum(enum: type[StrEnum], name: str) -> Enum:
+    # Stored as VARCHAR + CHECK rather than a native PG enum: easier to extend.
+    return Enum(
+        enum,
+        native_enum=False,
+        length=32,
+        values_callable=lambda e: [m.value for m in e],
+        name=name,
+    )
+
+
 class NotationKind(StrEnum):
     LETTER = "letter"
     SOLFEGE = "solfege"
+
+
+class NotificationType(StrEnum):
+    WELCOME_FOLLOWUP = "welcome_followup"
+    WEEKLY_REMINDER = "weekly_reminder"
+    DIRECT = "direct"
+    BROADCAST = "broadcast"
+
+
+class NotificationStatus(StrEnum):
+    SENT = "sent"
+    BLOCKED = "blocked"  # 403: user blocked the bot
+    FAILED = "failed"
 
 
 class User(Base):
@@ -58,3 +82,18 @@ class User(Base):
         return not self.is_blocked_bot and (
             self.bot_started_at is not None or bool(self.allows_write_to_pm)
         )
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+    __table_args__ = (Index("ix_notifications_user_type", "user_id", "type"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    type: Mapped[NotificationType] = mapped_column(_str_enum(NotificationType, "notification_type"))
+    status: Mapped[NotificationStatus] = mapped_column(
+        _str_enum(NotificationStatus, "notification_status")
+    )
+    sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    telegram_message_id: Mapped[int | None] = mapped_column(BigInteger)
+    error: Mapped[str | None] = mapped_column(Text)

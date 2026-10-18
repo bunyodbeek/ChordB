@@ -2,6 +2,7 @@
 # - no postgres service (uses the existing container's "chordb" database on 127.0.0.1)
 # - host networking so 127.0.0.1 means the VPS itself
 # - backend listens on 127.0.0.1:8001 only; Nginx proxies /api to it
+# - bot uses long polling, so it needs no port at all
 services:
   backend:
     network_mode: host
@@ -11,3 +12,9 @@ services:
       ENV: prod
       HOST: 127.0.0.1
       PORT: "8001"
+
+  bot:
+    network_mode: host
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      ENV: prod

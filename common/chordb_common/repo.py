@@ -1,4 +1,4 @@
-from sqlalchemy import func
+from sqlalchemy import func, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -50,3 +50,18 @@ async def upsert_user(
     user = await session.scalar(stmt, execution_options={"populate_existing": True})
     assert user is not None
     return user
+
+
+async def mark_bot_started(session: AsyncSession, user_id: int) -> None:
+    """User pressed /start: the bot may message them, and they are not blocking it."""
+    await session.execute(
+        update(User)
+        .where(User.id == user_id)
+        .values(bot_started_at=func.coalesce(User.bot_started_at, func.now()), is_blocked_bot=False)
+    )
+
+
+async def set_blocked(session: AsyncSession, *, telegram_id: int, blocked: bool) -> None:
+    await session.execute(
+        update(User).where(User.telegram_id == telegram_id).values(is_blocked_bot=blocked)
+    )

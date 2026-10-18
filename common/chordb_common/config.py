@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     # initData older than this is rejected (seconds).
     init_data_max_age: int = 24 * 60 * 60
 
+    # Time zone for scheduled notifications.
+    notify_tz: str = "Asia/Tashkent"
+
     @field_validator("database_url")
     @classmethod
     def _use_asyncpg(cls, v: str) -> str:

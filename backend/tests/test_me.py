@@ -1,55 +1,21 @@
 """API tests against a real Postgres (TEST_DATABASE_URL). Skipped if it is unreachable."""
 
-import argparse
-import asyncio
 import os
 import time
 from collections.abc import AsyncIterator
-from pathlib import Path
 
 import httpx
 import pytest
-from alembic import command
-from alembic.config import Config
-from sqlalchemy import text
-from sqlalchemy.pool import NullPool
-
-from chordb_common.db import make_engine, make_sessionmaker
 
 from app.deps import get_session
 from app.init_data import sign_init_data
 from app.main import app
 
 TOKEN = os.environ["BOT_TOKEN"]
-BACKEND_DIR = Path(__file__).resolve().parents[1]
-
-
-def _migrate(url: str) -> None:
-    cfg = Config(str(BACKEND_DIR / "alembic.ini"))
-    cfg.set_main_option("script_location", str(BACKEND_DIR / "alembic"))
-    cfg.cmd_opts = argparse.Namespace(x=[f"url={url}"])
-    command.upgrade(cfg, "head")
-
-
-async def _reset_schema(engine) -> None:
-    async with engine.begin() as conn:
-        await conn.execute(text("DROP SCHEMA public CASCADE"))
-        await conn.execute(text("CREATE SCHEMA public"))
 
 
 @pytest.fixture
-async def client() -> AsyncIterator[httpx.AsyncClient]:
-    url = os.environ["TEST_DATABASE_URL"]
-    engine = make_engine(url, poolclass=NullPool)
-    try:
-        await _reset_schema(engine)
-    except OSError:
-        pytest.skip("TEST_DATABASE_URL not reachable")
-    # Build the schema through the real migrations (env.py runs its own event loop).
-    await asyncio.to_thread(_migrate, url)
-
-    sessionmaker = make_sessionmaker(engine)
-
+async def client(sessionmaker) -> AsyncIterator[httpx.AsyncClient]:
     async def _session():
         async with sessionmaker() as s:
             yield s
@@ -59,7 +25,6 @@ async def client() -> AsyncIterator[httpx.AsyncClient]:
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
         yield c
     app.dependency_overrides.clear()
-    await engine.dispose()
 
 
 def auth(user_id: int = 42, **user) -> dict[str, str]:

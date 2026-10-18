@@ -12,7 +12,8 @@ WORKDIR /src
 COPY pyproject.toml uv.lock ./
 COPY common/pyproject.toml common/
 COPY backend/pyproject.toml backend/
-RUN mkdir -p common/chordb_common backend/app \
+COPY bot/pyproject.toml bot/
+RUN mkdir -p common/chordb_common backend/app bot/chordb_bot \
  && uv sync --frozen --no-dev --no-install-workspace --package chordb-backend
 
 COPY common common
