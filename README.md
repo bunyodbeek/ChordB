@@ -87,7 +87,10 @@ Code:
 
 - `webapp/src/pitch.ts`: pitch detection (YIN).
 - `webapp/src/chords.ts`: voicings. Common chords use their open shapes, and every other chord uses the lowest E-shape or A-shape barre.
-- `webapp/src/audio.ts`: the strum sound (Karplus–Strong).
+- `webapp/src/audio/`: chord playback.
+  - `player.ts` is the only API the UI uses: `playChord`, `playNote`, `preload`, `setInstrument`, `setSource`.
+  - `strum.ts` turns a fingering into timed notes: low→high or high→low, 25 ms apart, velocity 70–85, with ±5 ms and ±5 velocity of human variation.
+  - `sources.ts` holds the `NoteSource` interface. The default source is the steel-string guitar soundfont via [smplr](https://github.com/danigb/smplr), loaded from gleitz.github.io (~1.8 MB, once per session). Each note passes its string and fret, so recorded `samples/{string}-{fret}.mp3` files can replace it through `setSource()`.
 - `webapp/src/songs.ts`: the song data.
 
 Tests: `npm test`. They check:

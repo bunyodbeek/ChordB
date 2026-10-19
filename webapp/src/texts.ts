@@ -36,6 +36,8 @@ export const t = {
   },
 
   chordsHint: "Akkordni bosing — ovozini eshitasiz",
+  soundLoading: "Gitara ovozlari yuklanmoqda…",
+  soundFailed: "Ovozlarni yuklab boʻlmadi — qayta urinish",
 
   songsHeading: "Qoʻshiqlar",
   progressionsHeading: "Mashq uchun progressiyalar",

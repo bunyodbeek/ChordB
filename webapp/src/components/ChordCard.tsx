@@ -1,4 +1,4 @@
-import { strum } from "../audio";
+import { playChord } from "../audio/player";
 import { voicing } from "../chords";
 import { formatChord, type Chord, type NotationKind } from "../notation";
 import { haptic } from "../telegram";
@@ -14,17 +14,16 @@ export function ChordCard({
   notation: NotationKind;
   compact?: boolean;
 }) {
-  const v = voicing(chord);
   return (
     <button
       className={`chord-card${compact ? " compact" : ""}`}
       onClick={() => {
         haptic.tap();
-        strum(v.frets);
+        void playChord(chord).catch(() => {});
       }}
     >
       <span className="chord-name">{formatChord(chord, notation)}</span>
-      <ChordDiagram voicing={v} />
+      <ChordDiagram voicing={voicing(chord)} />
     </button>
   );
 }

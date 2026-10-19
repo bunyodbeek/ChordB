@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { strum } from "../audio";
-import { voicing } from "../chords";
+import { playChord } from "../audio/player";
 import { formatChord, parseChord, type NotationKind } from "../notation";
 import { SONGS, chordsOf, songChord, type Song } from "../songs";
 import { haptic, useBackButton } from "../telegram";
 import { t } from "../texts";
 import { ChordCard } from "./ChordCard";
+import { SoundStatus } from "./SoundStatus";
 
 export function Songs({ notation }: { notation: NotationKind }) {
   const [open, setOpen] = useState<Song | null>(null);
@@ -69,7 +69,7 @@ function SongView({
   const name = (sym: string) => formatChord(songChord(sym, shift), notation);
   const play = (sym: string) => {
     haptic.tap();
-    strum(voicing(songChord(sym, shift)).frets);
+    void playChord(songChord(sym, shift)).catch(() => {});
   };
   const transposeBy = (d: number) => {
     haptic.tap();
@@ -111,6 +111,7 @@ function SongView({
       </div>
 
       <h2 className="section-title">{t.chordsUsed}</h2>
+      <SoundStatus />
       <div className="chord-strip">
         {chordsOf(song).map((sym) => (
           <ChordCard key={sym} chord={songChord(sym, shift)} notation={notation} compact />
