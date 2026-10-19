@@ -7,7 +7,7 @@ ChordB is a guitar tuner that runs as a Telegram Mini App.
 | `common/` | Shared Python package `chordb_common`: settings, SQLAlchemy models, DB session, notation formatter |
 | `backend/` | FastAPI API (`/api/*`) and Alembic migrations |
 | `bot/` | aiogram 3 bot (long polling) and scheduled notifications (APScheduler) |
-| `webapp/` | React, Vite and TypeScript Mini App *(phase 3)* |
+| `webapp/` | React, Vite and TypeScript Mini App: the guitar tuner |
 | `deploy/` | Nginx config for the VPS |
 
 The Python packages form a [uv](https://docs.astral.sh/uv/) workspace with a single `uv.lock`.
@@ -47,6 +47,55 @@ cd backend
 uv run alembic upgrade head
 uv run uvicorn app.main:app --reload --port 8001
 ```
+
+### Running the webapp
+
+```bash
+cd webapp
+npm install
+npm run dev               # http://localhost:5173, proxies /api to localhost:8001
+```
+
+Outside Telegram the app needs a signed initData to log in. Put one in `webapp/.env.local` (it expires after 24h):
+
+```bash
+cd backend
+echo "VITE_DEV_INIT_DATA=\"$(uv run python -m app.dev_init_data --id 1001 --first-name Bunyod)\"" > ../webapp/.env.local
+```
+
+The browser allows the microphone on `localhost`, so the tuner works there too.
+
+The app:
+
+- On first open, asks for letter (E A D) or solfège (Mi Lya Re) note names and saves the choice to `settings.notation`.
+- Tunes in standard tuning (E2 A2 D3 G3 B3 E4). It picks the nearest string automatically, or you can lock one string. A string counts as tuned once it stays within ±5 cents for 0.6 s.
+- Reports `tuner_opened` when the microphone starts. After the first string is tuned it asks for write access, once (`needs_write_access`), and reports `write_access_requested` / `write_access_granted`.
+- Follows Telegram's light or dark theme.
+
+It has four tabs:
+
+| Tab | What |
+|---|---|
+| Sozlash | The tuner: big note, cents meter, headstock with the six strings |
+| Akkordlar | 12 roots × 9 qualities (maj, m, 7, m7, maj7, sus2, sus4, dim, aug) as chord diagrams. Tap one to hear it strummed. |
+| Qoʻshiqlar | Chord charts for public-domain and traditional songs, plus practice progressions. Each can be transposed and shows the chords it uses. Chords only, no lyrics. |
+| Profil | Name, notation and weekly reminders |
+
+Note and chord names everywhere follow the ABC / Do Re Mi setting.
+
+Code:
+
+- `webapp/src/pitch.ts`: pitch detection (YIN).
+- `webapp/src/chords.ts`: voicings. Common chords use their open shapes, and every other chord uses the lowest E-shape or A-shape barre.
+- `webapp/src/audio.ts`: the strum sound (Karplus–Strong).
+- `webapp/src/songs.ts`: the song data.
+
+Tests: `npm test`. They check:
+
+- pitch detection on synthetic string tones;
+- that every one of the 108 voicings sounds only chord tones, with the root lowest;
+- that every song chord is playable in every transposition;
+- notation, using the same cases as `common/tests/test_notation.py`.
 
 ### Running the bot
 
@@ -96,7 +145,7 @@ Telegram only opens Mini Apps over HTTPS, so expose your local server through a 
 
 ```bash
 # Cloudflare quick tunnel: no account needed, gives a random https://*.trycloudflare.com URL
-cloudflared tunnel --url http://localhost:5173      # Vite dev server (phase 3+)
+cloudflared tunnel --url http://localhost:5173      # Vite dev server; /api is proxied through it
 # or: ngrok http 5173
 ```
 
@@ -143,7 +192,15 @@ docker compose logs -f bot              # "menu button -> https://chordb.shredzv
 ```
 The backend applies migrations (`alembic upgrade head`) on start, and the bot starts once the backend is healthy. The prod override drops the bundled Postgres and uses host networking, so `127.0.0.1` in `DATABASE_URL` refers to the VPS itself.
 
-### 4. Nginx and TLS
+### 4. Webapp build
+
+Nginx serves the static build from `webapp/dist`. Node 20 or newer must be installed on the VPS:
+
+```bash
+cd /opt/chordb/webapp && npm ci && npm run build
+```
+
+### 5. Nginx and TLS
 
 ```bash
 sudo cp deploy/nginx-chordb.conf /etc/nginx/sites-available/chordb
@@ -157,6 +214,7 @@ sudo certbot --nginx -d chordb.shredzville.com
 ```bash
 cd /opt/chordb && git pull
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+(cd webapp && npm ci && npm run build)
 ```
 
 ## Notifications

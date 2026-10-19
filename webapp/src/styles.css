@@ -1,0 +1,879 @@
+/* ChordB palette. Light is the design; dark mirrors it for Telegram's dark theme.
+   data-theme is set by initTelegram() in telegram.ts. */
+:root {
+  --bg: #f2f2ef;
+  --card: #ffffff;
+  --text: #111111;
+  --muted: #8a8a86;
+  --line: #dcdcd8;
+  --seg: #e6e6e2;
+  --blue: #2f54eb;
+  --blue-soft: #e4eafd;
+  --blue-text: #2443cc;
+  --green: #23894e;
+  --green-soft: #dcf2e3;
+  --green-text: #1b7341;
+  --zone: #d6f0de;
+  --zone-line: #b2dfc0;
+  --tick: #c4c4bf;
+  --tick-major: #9c9c97;
+  --connector: #d3d3cf;
+  --pill-muted: #e9e9e5;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 2px 8px rgb(0 0 0 / 0.04);
+
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --tabbar-h: 68px;
+
+  color-scheme: light;
+  font-family: var(--font);
+  -webkit-tap-highlight-color: transparent;
+}
+
+:root[data-theme="dark"] {
+  --bg: #141416;
+  --card: #1e1e21;
+  --text: #f2f2f2;
+  --muted: #9a9a9f;
+  --line: #34343a;
+  --seg: #2a2a2e;
+  --blue: #5b7cff;
+  --blue-soft: #1f2a52;
+  --blue-text: #a9bbff;
+  --green: #3fbf72;
+  --green-soft: #173524;
+  --green-text: #7ee0a3;
+  --zone: #1b3a27;
+  --zone-line: #2a5a3c;
+  --tick: #4a4a50;
+  --tick-major: #6a6a70;
+  --connector: #3a3a3e;
+  --pill-muted: #26262a;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  user-select: none;
+  overscroll-behavior: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border: 0;
+  background: none;
+  padding: 0;
+}
+
+h1 {
+  font-size: 1.65rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.small {
+  display: block;
+  font-size: 0.8rem;
+  margin-top: 0.15rem;
+}
+
+.message {
+  text-align: center;
+  line-height: 1.45;
+  margin: 0 0 1rem;
+}
+
+.center {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.button {
+  border-radius: 14px;
+  padding: 0.9rem 1.25rem;
+  background: var(--blue);
+  color: #fff;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.button.wide {
+  width: 100%;
+}
+
+/* --- layout --- */
+
+.app {
+  min-height: 100dvh;
+}
+
+.content {
+  padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 0.5rem);
+}
+
+.page {
+  max-width: 440px;
+  margin: 0 auto;
+  padding: max(1rem, env(safe-area-inset-top)) 1rem 1rem;
+}
+
+.page-header {
+  margin-bottom: 1rem;
+}
+
+.card {
+  background: var(--card);
+  border-radius: 18px;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  box-shadow: var(--shadow);
+}
+
+/* --- segmented control (ABC | Do Re Mi) --- */
+
+.segmented {
+  display: inline-flex;
+  flex-shrink: 0;
+  background: var(--seg);
+  border-radius: 12px;
+  padding: 3px;
+}
+
+.segmented button {
+  border-radius: 9px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.segmented button.selected {
+  background: var(--card);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
+}
+
+/* --- tuner --- */
+
+.tuner-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.subtitle {
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin-top: 0.2rem;
+}
+
+.readout {
+  text-align: center;
+  margin-top: 1rem;
+}
+
+.note {
+  font-size: 5.25rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  transition:
+    color 120ms,
+    opacity 200ms;
+}
+
+.note sub {
+  font-size: 1.4rem;
+  font-weight: 500;
+  color: var(--muted);
+  letter-spacing: 0;
+  margin-left: 0.1em;
+}
+
+.note.in-tune {
+  color: var(--green);
+}
+
+.note.stale,
+.numbers.stale {
+  opacity: 0.45;
+}
+
+.numbers {
+  font-family: var(--mono);
+  font-size: 0.95rem;
+  color: var(--muted);
+  margin-top: 0.6rem;
+  min-height: 1.3em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Horizontal cents meter */
+
+.meter {
+  margin-top: 0.75rem;
+}
+
+.meter-scale {
+  position: relative;
+  height: 40px;
+  margin: 0 2px;
+}
+
+.meter-zone {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  background: var(--zone);
+  border: 1px solid var(--zone-line);
+  border-radius: 4px;
+}
+
+.meter-tick {
+  position: absolute;
+  top: 50%;
+  width: 1.5px;
+  height: 14px;
+  background: var(--tick);
+  transform: translate(-50%, -50%);
+  border-radius: 1px;
+}
+
+.meter-tick.major {
+  height: 28px;
+  background: var(--tick-major);
+}
+
+.meter-needle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  border-radius: 2px;
+  background: var(--blue);
+  transform: translateX(-50%);
+  transition: left 120ms ease-out;
+}
+
+.meter-needle.in-tune {
+  background: var(--green);
+}
+
+.meter-needle.idle {
+  background: var(--tick);
+}
+
+.meter-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: 0.25rem;
+}
+
+/* Status pill + Avto */
+
+.status-row {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.9rem;
+}
+
+.pill {
+  flex: 1;
+  min-width: 0;
+  border-radius: 14px;
+  padding: 0.8rem 0.9rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  text-align: left;
+  transition:
+    background 150ms,
+    color 150ms;
+}
+
+.pill.info {
+  background: var(--blue-soft);
+  color: var(--blue-text);
+}
+
+.pill.good {
+  background: var(--green-soft);
+  color: var(--green-text);
+}
+
+.pill.action {
+  background: var(--blue);
+  color: #fff;
+}
+
+.pill.muted {
+  background: var(--pill-muted);
+  color: var(--muted);
+}
+
+.auto-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0 0.9rem;
+  border-radius: 14px;
+  background: var(--card);
+  border: 1.5px solid var(--line);
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.auto-btn.on {
+  border-color: var(--blue);
+  color: var(--blue);
+}
+
+.auto-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* Headstock */
+
+.headstock {
+  position: relative;
+  width: 100%;
+  max-width: 360px;
+  margin: 1.25rem auto 0;
+}
+
+.headstock svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.hs-connector {
+  stroke: var(--connector);
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+
+.hs-body {
+  fill: #1c1c1e;
+}
+
+.hs-neck {
+  fill: #2a2a2c;
+}
+
+.hs-fret {
+  stroke: #4a4a4c;
+  stroke-width: 2;
+}
+
+.hs-dot {
+  fill: #5a5a5c;
+}
+
+.hs-logo {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+
+.hs-string {
+  fill: none;
+  stroke: #9b9b9b;
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+}
+
+.hs-string.active {
+  stroke: var(--blue);
+  stroke-width: 3.5;
+}
+
+.hs-nut {
+  fill: #ece6d6;
+}
+
+.hs-peg {
+  fill: #dcdcdc;
+  stroke: #8e8e8e;
+  stroke-width: 2;
+}
+
+.hs-peg.active {
+  fill: var(--blue);
+  stroke: #fff;
+}
+
+.string-btn {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+  background: var(--card);
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  transition:
+    background 120ms,
+    border-color 120ms,
+    color 120ms;
+}
+
+.string-btn-name {
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.string-btn-sub {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.string-btn.tuned {
+  border: 2px solid var(--green);
+}
+
+.string-btn.tuned .string-btn-sub {
+  color: var(--green);
+  font-weight: 700;
+}
+
+.string-btn.active {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+  box-shadow: 0 4px 14px rgb(47 84 235 / 0.35);
+}
+
+.string-btn.active .string-btn-sub {
+  color: rgb(255 255 255 / 0.85);
+}
+
+/* --- tab bar --- */
+
+.tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.25rem;
+  padding: 0.5rem 0.75rem calc(0.5rem + env(safe-area-inset-bottom));
+  background: var(--card);
+  border-top: 1px solid var(--line);
+}
+
+.tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.45rem 0;
+  border-radius: 14px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
+.tab.active {
+  background: var(--blue-soft);
+  color: var(--blue);
+  font-weight: 600;
+}
+
+/* --- profile / coming soon --- */
+
+.profile-card {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--blue);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  font-weight: 700;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.profile-name {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.card-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+}
+
+.card-row + .card-row {
+  border-top: 1px solid var(--line);
+  padding-top: 0.9rem;
+  margin-top: 0.4rem;
+}
+
+.card-label {
+  font-weight: 600;
+}
+
+/* --- chords --- */
+
+.chips {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  margin: 1rem -1rem 0;
+  padding: 0 1rem 0.25rem;
+  scrollbar-width: none;
+}
+
+.chips::-webkit-scrollbar {
+  display: none;
+}
+
+.chip {
+  flex-shrink: 0;
+  min-width: 44px;
+  padding: 0.55rem 0.8rem;
+  border-radius: 12px;
+  background: var(--card);
+  border: 1.5px solid var(--line);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.chip.selected {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+}
+
+.chord-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+.chord-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--card);
+  border-radius: 16px;
+  padding: 0.75rem 0.5rem 0.5rem;
+  box-shadow: var(--shadow);
+  transition: transform 80ms;
+}
+
+.chord-card:active {
+  transform: scale(0.96);
+}
+
+.chord-card.compact {
+  flex-shrink: 0;
+  width: 104px;
+}
+
+.chord-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+  text-align: center;
+  min-height: 1.2em;
+}
+
+.chord-diagram {
+  width: 100%;
+  max-width: 110px;
+}
+
+.cd-nut {
+  fill: var(--text);
+}
+
+.cd-fret,
+.cd-string {
+  stroke: var(--tick-major);
+  stroke-width: 1;
+}
+
+.cd-dot {
+  fill: var(--blue);
+}
+
+.cd-open {
+  fill: none;
+  stroke: var(--text);
+  stroke-width: 1.4;
+}
+
+.cd-mark,
+.cd-base {
+  fill: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* --- songs --- */
+
+.section-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin: 1.25rem 0 0.6rem;
+}
+
+.page-header + .section-title {
+  margin-top: 0;
+}
+
+.song-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  text-align: left;
+  gap: 0.15rem;
+}
+
+.song-title {
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.song-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.5rem;
+}
+
+.mini-chip {
+  background: var(--blue-soft);
+  color: var(--blue-text);
+  border-radius: 8px;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.back-link {
+  color: var(--blue);
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.transpose {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-weight: 700;
+}
+
+.stepper button {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--seg);
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.shift {
+  font-weight: 500;
+  font-size: 0.85rem;
+}
+
+.chord-strip {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  margin: 0 -1rem;
+  padding: 0.1rem 1rem 0.5rem;
+  scrollbar-width: none;
+}
+
+.chord-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.bars {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.4rem;
+}
+
+/* Solfège names ("Fa diyez minor") need more room. */
+.bars.wide {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.bar {
+  display: flex;
+  gap: 2px;
+  background: var(--card);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.bar-chord {
+  flex: 1;
+  min-width: 0;
+  padding: 0.85rem 0.15rem;
+  font-weight: 700;
+  font-size: 0.95rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bar-chord + .bar-chord {
+  border-left: 1px solid var(--line);
+}
+
+.bar-chord:active {
+  background: var(--blue-soft);
+}
+
+.bars-hint {
+  margin-top: 1rem;
+  text-align: center;
+}
+
+.switch {
+  appearance: none;
+  width: 48px;
+  height: 28px;
+  border-radius: 14px;
+  background: var(--seg);
+  position: relative;
+  margin: 0;
+  transition: background 150ms;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
+  transition: transform 150ms;
+}
+
+.switch:checked {
+  background: var(--green);
+}
+
+.switch:checked::after {
+  transform: translateX(20px);
+}
+
+/* --- first-run notation picker --- */
+
+.picker {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.picker > .muted {
+  margin: 0.4rem 0 0;
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 1.25rem 0 1.5rem;
+}
+
+.option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+  border: 2px solid transparent;
+  border-radius: 18px;
+  background: var(--card);
+  box-shadow: var(--shadow);
+  padding: 1rem;
+  text-align: left;
+}
+
+.option.selected {
+  border-color: var(--blue);
+}
+
+.option-label {
+  font-weight: 700;
+}
+
+.option-example {
+  font-size: 1.15rem;
+  font-weight: 600;
+}
