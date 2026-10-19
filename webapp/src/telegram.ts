@@ -14,6 +14,8 @@ interface TelegramWebApp {
   expand(): void;
   isVersionAtLeast(version: string): boolean;
   disableVerticalSwipes?(): void;
+  openLink?(url: string): void;
+  showConfirm?(message: string, callback: (ok: boolean) => void): void;
   setHeaderColor?(color: string): void;
   setBackgroundColor?(color: string): void;
   setBottomBarColor?(color: string): void;
@@ -59,12 +61,13 @@ export function initTelegram(): void {
   tg.expand();
   // Stop a downward swipe on the tuner from closing the app (Bot API 7.7+).
   if (tg.isVersionAtLeast("7.7")) tg.disableVerticalSwipes?.();
-  // Blend Telegram's header and bottom bar into the page (keep in sync with --bg / --card).
+  // Blend Telegram's header and bottom bar into the page (keep in sync with --bg).
+  const bg = dark ? "#141416" : "#f4f5f2";
   if (tg.isVersionAtLeast("6.1")) {
-    tg.setHeaderColor?.(dark ? "#141416" : "#f2f2ef");
-    tg.setBackgroundColor?.(dark ? "#141416" : "#f2f2ef");
+    tg.setHeaderColor?.(bg);
+    tg.setBackgroundColor?.(bg);
   }
-  if (tg.isVersionAtLeast("7.10")) tg.setBottomBarColor?.(dark ? "#1e1e21" : "#ffffff");
+  if (tg.isVersionAtLeast("7.10")) tg.setBottomBarColor?.(bg);
 }
 
 /** requestWriteAccess exists from Bot API 6.9, and only means something inside Telegram. */
@@ -89,6 +92,20 @@ export function useBackButton(onBack: () => void): void {
       bb.hide();
     };
   }, [onBack]);
+}
+
+/** Yes/no question: Telegram's native popup inside Telegram, the browser's outside. */
+export function confirmDialog(message: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (inTelegram && tg?.showConfirm && tg.isVersionAtLeast("6.2")) tg.showConfirm(message, resolve);
+    else resolve(window.confirm(message));
+  });
+}
+
+/** Open an external link (Telegram's in-app browser inside Telegram). */
+export function openLink(url: string): void {
+  if (inTelegram && tg?.openLink) tg.openLink(url);
+  else window.open(url, "_blank", "noopener");
 }
 
 export const haptic = {

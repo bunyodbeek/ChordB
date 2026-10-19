@@ -9,21 +9,11 @@ webapp/src/notation.ts mirrors these tables — keep them in sync.
 
 import re
 from dataclasses import dataclass
-from enum import StrEnum
 
-from chordb_common.models import NotationKind
+# Quality lives in models (chord events store it); re-exported here.
+from chordb_common.models import NotationKind, Quality
 
-
-class Quality(StrEnum):
-    MAJOR = "maj"
-    MINOR = "min"
-    DOM7 = "7"
-    MAJ7 = "maj7"
-    MIN7 = "m7"
-    DIM = "dim"
-    AUG = "aug"
-    SUS2 = "sus2"
-    SUS4 = "sus4"
+__all__ = ["Chord", "Note", "Quality", "format_chord", "format_note", "note_name", "parse_chord"]
 
 
 # Natural notes by pitch class.

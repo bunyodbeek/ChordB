@@ -27,7 +27,22 @@ The backend checks the HMAC-SHA256 signature using `BOT_TOKEN` and rejects initD
 | GET | `/api/me` | Profile, `settings` and `needs_write_access` |
 | PATCH | `/api/me/settings` | `{"notation": "letter" \| "solfege", "notifications_enabled": bool}`. Either field can be omitted. |
 | POST | `/api/me/events` | `{"type": "tuner_opened" \| "write_access_requested" \| "write_access_granted"}` |
+| GET | `/api/songs` | `?q=&easy=&uzbek=&no_capo=`. Returns `{continue_playing, songs[]}`, published songs only. Each song has `locked` and `chords_preview` (its first 4 distinct chords). |
+| GET | `/api/songs/{id}` | Song with `youtube_id`, `sections`, `events`, `position_sec`. A locked premium song gets **403** with `detail = {code: "premium_required", paywall: true, song}`. |
+| PUT | `/api/songs/{id}/progress` | `{"position_sec": 61.5}`. Feeds `continue_playing`. |
 | GET | `/api/healthz` | Liveness |
+
+Chords are always canonical: `{"root": 0..11, "quality": "maj"|"min"|"7"|"maj7"|"m7"|"dim"|"aug"|"sus2"|"sus4"}`. The webapp renders them in the user's notation.
+
+Admin endpoints accept only the Telegram ids in `ADMIN_IDS`. `/api/me` reports `is_admin` and `is_premium`. Premium here is ChordB's own `users.is_premium`, not Telegram Premium.
+
+| Method | Path | |
+|---|---|---|
+| GET | `/api/admin/songs` | All songs, drafts included |
+| POST | `/api/admin/songs` | Create a draft: `title, artist, youtube_id, key, capo, difficulty, language, is_premium, duration_sec` |
+| PATCH | `/api/admin/songs/{id}` | Update any of those fields |
+| PUT | `/api/admin/songs/{id}/events` | `{sections: [{title, start_sec}], events: [{time_sec, root, quality}]}`. Replaces the whole timeline. Each event belongs to the last section that starts at or before it. |
+| PATCH | `/api/admin/songs/{id}/publish` | `{"is_published": true}`. Requires at least one chord event. |
 
 In `ENV=dev`, interactive docs are at `/api/docs`.
 
@@ -78,10 +93,32 @@ It has four tabs:
 |---|---|
 | Sozlash | The tuner: big note, cents meter, headstock with the six strings |
 | Akkordlar | 12 roots × 9 qualities (maj, m, 7, m7, maj7, sus2, sus4, dim, aug) as chord diagrams. Tap one to hear it strummed. |
-| Qoʻshiqlar | Chord charts for public-domain and traditional songs, plus practice progressions. Each can be transposed and shows the chords it uses. Chords only, no lyrics. |
+| Qoʻshiqlar | Songs from the API: search, filters, "Davom ettirish", and a player with the YouTube video and its chords (see below) |
 | Profil | Name, notation and weekly reminders |
 
 Note and chord names everywhere follow the ABC / Do Re Mi setting.
+
+The design specs for the songs screens are `webapp/*.reference.html`.
+
+**Player.** The video plays through the official YouTube IFrame API, embedded, never downloaded. The player:
+
+- reads the playback position every 100 ms and finds the current chord by binary search (`timeline.ts`);
+- shows "Hozir" / "Keyingi" diagrams, a 4-beat bar (each chord event counts as one bar), and the sections grid, where tapping a bar seeks the video there;
+- has Ton ±6 (changes the displayed chords only), Kapo (shapes shown relative to the capo), Tezlik 1/0.75/0.5× and loop of the current section;
+- saves the position every 10 s and on pause or leave.
+
+Videos whose owner disabled embedding (YouTube errors 101/150/153) show a message and a link to YouTube.
+
+**Admin** (`me.is_admin`). An "Admin" button above the song list leads to the admin screens:
+
+- **Song list:** every song, drafts included.
+- **Song form:** a YouTube link or id, key, capo, difficulty, language, premium, duration and published.
+- **Chord editor** (also reachable from the player's "Tahrirlash"):
+  - Play the video, slowed down if you like, and tap a palette chord when the chord changes. The palette holds the song's chords plus the key's common ones; "+" adds others.
+  - Each tap records `currentTime + offset`. The offset defaults to −0.15 s, compensates for tap delay, and is remembered on the device.
+  - "+ Boʻlim" adds section markers. Undo, × on a row, and tapping a row (seeks the video there) all work.
+  - "Saqlash va nashr qilish" replaces the whole timeline and publishes the song.
+  - The editor also syncs the stored duration with the real video length.
 
 Code:
 

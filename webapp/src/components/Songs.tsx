@@ -1,140 +1,123 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { playChord } from "../audio/player";
-import { formatChord, parseChord, type NotationKind } from "../notation";
-import { SONGS, chordsOf, songChord, type Song } from "../songs";
-import { haptic, useBackButton } from "../telegram";
+import type { SongSummary } from "../api";
+import type { NotationKind } from "../notation";
 import { t } from "../texts";
-import { ChordCard } from "./ChordCard";
-import { SoundStatus } from "./SoundStatus";
+import { AdminSongs } from "./admin/AdminSongs";
+import { ChordEditor } from "./admin/ChordEditor";
+import { SongForm } from "./admin/SongForm";
+import { SongPlayer } from "./SongPlayer";
+import { SongsList } from "./SongsList";
 
-export function Songs({ notation }: { notation: NotationKind }) {
-  const [open, setOpen] = useState<Song | null>(null);
-  // Stable so Telegram's back button isn't re-registered on every render.
-  const close = useCallback(() => setOpen(null), []);
+type View =
+  | { name: "list" }
+  | { name: "player"; id: number }
+  | { name: "admin" }
+  | { name: "form"; id: number | null }
+  | { name: "editor"; id: number };
 
-  useEffect(() => window.scrollTo(0, 0), [open]);
+interface Props {
+  notation: NotationKind;
+  isAdmin: boolean;
+  onFullscreen: (on: boolean) => void; // everything but the list hides the tab bar
+}
 
-  if (open) return <SongView song={open} notation={notation} onBack={close} />;
+/** The Qoʻshiqlar tab: a small stack of screens; back pops one. */
+export function Songs({ notation, isAdmin, onFullscreen }: Props) {
+  const [stack, setStack] = useState<View[]>([{ name: "list" }]);
+  const [paywall, setPaywall] = useState<SongSummary | null>(null);
+  const view = stack[stack.length - 1];
 
-  const list = (kind: Song["kind"]) =>
-    SONGS.filter((s) => s.kind === kind).map((s) => (
-      <button
-        key={s.id}
-        className="card song-item"
-        onClick={() => {
-          haptic.tap();
-          setOpen(s);
-        }}
-      >
-        <span className="song-title">{s.title}</span>
-        <span className="muted small">
-          {s.author} · {formatChord(parseChord(s.key), notation)} · {t.levels[s.level]}
-        </span>
-        <span className="song-chips">
-          {chordsOf(s).map((sym) => (
-            <span key={sym} className="mini-chip">
-              {formatChord(parseChord(sym), notation)}
-            </span>
-          ))}
-        </span>
-      </button>
-    ));
+  const push = useCallback((v: View) => setStack((s) => [...s, v]), []);
+  const replace = useCallback((v: View) => setStack((s) => [...s.slice(0, -1), v]), []);
+  // Stable, so Telegram's back button and child effects aren't re-run every render.
+  const back = useCallback(() => setStack((s) => (s.length > 1 ? s.slice(0, -1) : s)), []);
+
+  useEffect(() => {
+    onFullscreen(view.name !== "list");
+    window.scrollTo(0, 0);
+  }, [view, onFullscreen]);
+  useEffect(() => () => onFullscreen(false), [onFullscreen]);
+
+  let screen;
+  switch (view.name) {
+    case "list":
+      screen = (
+        <SongsList
+          notation={notation}
+          isAdmin={isAdmin}
+          onOpen={(s) => push({ name: "player", id: s.id })}
+          onLocked={setPaywall}
+          onAdmin={isAdmin ? () => push({ name: "admin" }) : undefined}
+        />
+      );
+      break;
+    case "player":
+      screen = (
+        <SongPlayer
+          key={view.id}
+          songId={view.id}
+          notation={notation}
+          onBack={back}
+          onPaywall={setPaywall}
+          onEdit={isAdmin ? () => push({ name: "editor", id: view.id }) : undefined}
+        />
+      );
+      break;
+    case "admin":
+      screen = (
+        <AdminSongs
+          onBack={back}
+          onOpen={(id) => push({ name: "form", id })}
+          onNew={() => push({ name: "form", id: null })}
+        />
+      );
+      break;
+    case "form":
+      screen = (
+        <SongForm
+          key={view.id ?? "new"}
+          songId={view.id}
+          notation={notation}
+          onBack={back}
+          onCreated={(id) => replace({ name: "form", id })}
+          onMarkChords={(id) => push({ name: "editor", id })}
+        />
+      );
+      break;
+    case "editor":
+      screen = <ChordEditor key={view.id} songId={view.id} notation={notation} onBack={back} />;
+      break;
+  }
 
   return (
-    <div className="page">
-      <header className="page-header">
-        <h1>{t.tabs.songs}</h1>
-      </header>
-      <h2 className="section-title">{t.songsHeading}</h2>
-      {list("song")}
-      <h2 className="section-title">{t.progressionsHeading}</h2>
-      {list("progression")}
-    </div>
+    <>
+      {screen}
+      {paywall && <PremiumSheet song={paywall} onClose={() => setPaywall(null)} />}
+    </>
   );
 }
 
-function SongView({
-  song,
-  notation,
-  onBack,
-}: {
-  song: Song;
-  notation: NotationKind;
-  onBack: () => void;
-}) {
-  const [shift, setShift] = useState(0);
-  useBackButton(onBack);
-
-  const name = (sym: string) => formatChord(songChord(sym, shift), notation);
-  const play = (sym: string) => {
-    haptic.tap();
-    void playChord(songChord(sym, shift)).catch(() => {});
-  };
-  const transposeBy = (d: number) => {
-    haptic.tap();
-    setShift((s) => ((s + d + 17) % 12) - 5); // keep within -5..+6
-  };
-
+function PremiumSheet({ song, onClose }: { song: SongSummary; onClose: () => void }) {
   return (
-    <div className="page">
-      <button className="back-link" onClick={onBack}>
-        ‹ {t.back}
-      </button>
-      <header className="page-header">
-        <h1>{song.title}</h1>
-        <div className="subtitle">
-          {song.author} · {song.meter} · {t.levels[song.level]}
-        </div>
-      </header>
-
-      <div className="card transpose">
-        <span className="card-label">{t.key}</span>
-        <div className="stepper">
-          <button aria-label="-1" onClick={() => transposeBy(-1)}>
-            −
-          </button>
-          <span>
-            {name(song.key)}
-            {shift !== 0 && (
-              <span className="muted shift">
-                {" "}
-                ({shift > 0 ? "+" : ""}
-                {shift})
-              </span>
-            )}
-          </span>
-          <button aria-label="+1" onClick={() => transposeBy(1)}>
-            +
-          </button>
-        </div>
+    <div className="overlay" onClick={onClose}>
+      <div
+        className="sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="premium-title"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <span className="tag premium">{t.songs.premium}</span>
+        <h2 id="premium-title">{t.songs.premiumTitle}</h2>
+        <p className="sheet-song">
+          {song.title} · <span className="muted">{song.artist}</span>
+        </p>
+        <p className="muted">{t.songs.premiumText}</p>
+        <button type="button" className="button wide" onClick={onClose}>
+          {t.songs.ok}
+        </button>
       </div>
-
-      <h2 className="section-title">{t.chordsUsed}</h2>
-      <SoundStatus />
-      <div className="chord-strip">
-        {chordsOf(song).map((sym) => (
-          <ChordCard key={sym} chord={songChord(sym, shift)} notation={notation} compact />
-        ))}
-      </div>
-
-      {song.sections.map((section, i) => (
-        <section key={i}>
-          <h2 className="section-title">{section.name}</h2>
-          <div className={`bars${notation === "solfege" ? " wide" : ""}`}>
-            {section.bars.map((bar, j) => (
-              <div key={j} className="bar">
-                {bar.split(" ").map((sym, k) => (
-                  <button key={k} className="bar-chord" onClick={() => play(sym)}>
-                    {name(sym)}
-                  </button>
-                ))}
-              </div>
-            ))}
-          </div>
-        </section>
-      ))}
-      <p className="muted small bars-hint">{t.barsHint}</p>
     </div>
   );
 }

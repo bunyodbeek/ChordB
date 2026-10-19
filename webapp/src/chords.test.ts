@@ -1,7 +1,22 @@
 import { describe, expect, it } from "vitest";
 
-import { INTERVALS, QUALITIES, chordTones, soundedPcs, voicing } from "./chords";
-import { parseChord } from "./notation";
+import { INTERVALS, QUALITIES, chordTones, soundedPcs, spelled, transpose, voicing } from "./chords";
+import { formatChord, parseChord } from "./notation";
+
+describe("transpose", () => {
+  it("moves the root and respells", () => {
+    expect(formatChord(transpose(parseChord("Am"), 2), "letter")).toBe("Bm");
+    expect(formatChord(transpose(parseChord("G"), 3), "letter")).toBe("Bb");
+    expect(formatChord(transpose(parseChord("C"), -1), "letter")).toBe("B");
+    expect(formatChord(transpose(parseChord("E7"), 2), "letter")).toBe("F#7");
+    expect(formatChord(transpose(parseChord("D"), 1), "solfege")).toBe("Mi bemol major");
+  });
+
+  it("spells API chords the guitar way", () => {
+    expect(formatChord(spelled({ root: 10, quality: "maj" }), "letter")).toBe("Bb");
+    expect(formatChord(spelled({ root: 6, quality: "min" }), "letter")).toBe("F#m");
+  });
+});
 
 const ALL = Array.from({ length: 12 }, (_, root) =>
   QUALITIES.map((quality) => ({ root, quality })),

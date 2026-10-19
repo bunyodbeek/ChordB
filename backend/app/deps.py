@@ -10,6 +10,7 @@ from chordb_common.models import User
 from chordb_common.repo import upsert_user
 
 from app.init_data import InitDataError, validate_init_data
+from app.schemas import is_admin
 
 
 async def get_session() -> AsyncIterator[AsyncSession]:
@@ -64,3 +65,9 @@ async def current_user(
 
 
 CurrentUser = Annotated[User, Depends(current_user)]
+
+
+async def require_admin(user: CurrentUser) -> User:
+    if not is_admin(user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="admins only")
+    return user

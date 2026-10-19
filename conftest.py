@@ -12,6 +12,7 @@ import pytest
 os.environ["BOT_TOKEN"] = "123456:TEST-token"
 os.environ["ENV"] = "dev"
 os.environ["WEBAPP_URL"] = "https://chordb.test"
+os.environ["ADMIN_IDS"] = "7"  # telegram id 7 is the admin in API tests
 os.environ.setdefault(
     "TEST_DATABASE_URL", "postgresql+asyncpg://chordb:chordb@127.0.0.1:5432/chordb_test"
 )

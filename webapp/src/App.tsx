@@ -18,6 +18,7 @@ type Load =
 export default function App() {
   const [load, setLoad] = useState<Load>({ state: "loading" });
   const [tab, setTab] = useState<Tab>("tuner");
+  const [fullscreen, setFullscreen] = useState(false); // e.g. the song player hides the tab bar
 
   const fetchMe = useCallback(() => {
     if (!getInitData()) {
@@ -76,7 +77,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <main className="content">
+      <main className={`content${fullscreen ? " fullscreen" : ""}`}>
         {tab === "tuner" && (
           <Tuner
             notation={me.settings.notation}
@@ -91,16 +92,24 @@ export default function App() {
             onNotationChange={(notation) => updateSettings({ notation })}
           />
         )}
-        {tab === "songs" && <Songs notation={me.settings.notation} />}
+        {tab === "songs" && (
+          <Songs
+            notation={me.settings.notation}
+            isAdmin={me.is_admin}
+            onFullscreen={setFullscreen}
+          />
+        )}
         {tab === "profile" && <Profile me={me} onChange={updateSettings} />}
       </main>
-      <TabBar
-        tab={tab}
-        onChange={(next) => {
-          setTab(next);
-          window.scrollTo(0, 0);
-        }}
-      />
+      {!fullscreen && (
+        <TabBar
+          tab={tab}
+          onChange={(next) => {
+            setTab(next);
+            window.scrollTo(0, 0);
+          }}
+        />
+      )}
     </div>
   );
 }

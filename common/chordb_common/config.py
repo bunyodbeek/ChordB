@@ -21,6 +21,13 @@ class Settings(BaseSettings):
     # Time zone for scheduled notifications.
     notify_tz: str = "Asia/Tashkent"
 
+    # Comma-separated Telegram user ids allowed to use /api/admin, e.g. "123,456".
+    admin_ids: str = ""
+
+    @property
+    def admin_id_set(self) -> frozenset[int]:
+        return frozenset(int(x) for x in self.admin_ids.replace(" ", "").split(",") if x)
+
     @field_validator("database_url")
     @classmethod
     def _use_asyncpg(cls, v: str) -> str:

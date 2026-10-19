@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<title>ChordB — Qoʻshiq pleyeri</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&amp;family=IBM+Plex+Mono:wght@500;600&amp;display=swap">
+<style>
+body{margin:0;background:#F4F5F2}
+a{color:#2F5BFF}a:hover{color:#1F3FCC}
+button{font-family:inherit;cursor:pointer}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F2; color: #15171A; font-family: 'Bricolage Grotesque', sans-serif; display: flex; flex-direction: column">
+  <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; padding: 14px 16px 0">
+    <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 12px">
+      <div style="display: flex; flex-direction: column; min-width: 0">
+        <h1 style="margin: 0; font-weight: 800; font-size: 24px; letter-spacing: -0.02em">[Qoʻshiq nomi]</h1>
+        <span style="font-size: 13px; color: #5B6068">[Ijrochi] · {{keyName}} · kaposiz</span>
+      </div>
+      <span style="flex: none; height: 28px; display: inline-flex; align-items: center; padding: 0 10px; border-radius: 8px; background: #DDF0E7; color: #0B5A40; font-size: 12px; font-weight: 600">Oson</span>
+    </div>
+
+    <div style="position: relative; width: 358px; height: 201px; flex: none; border-radius: 16px; background: #1D2026; overflow: hidden; display: flex; align-items: center; justify-content: center">
+      <span aria-hidden="true" style="position: absolute; left: 12px; top: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8A8F96">YouTube video (rasmiy embed)</span>
+      <div aria-hidden="true" style="width: 64px; height: 44px; border-radius: 12px; background: rgba(255,255,255,0.14); display: flex; align-items: center; justify-content: center; color: #FFFFFF">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></div>
+      <div style="position: absolute; left: 0; bottom: 0; width: 358px; height: 4px; background: #3A3D42"><div style="width: {{progress}}%; height: 4px; background: {{accent}}"></div></div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1.15fr 1fr; gap: 10px">
+      <sc-for list="{{pair}}" as="c" hint-placeholder-count="2">
+        <div style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 18px; background: {{c.bg}}; color: {{c.fg}}; border: 1px solid {{c.border}}">
+          <div role="img" aria-label="{{c.aria}}" style="position: relative; width: 56px; height: 72px; flex: none">
+            <sc-for list="{{c.tops}}" as="t" hint-placeholder-count="6">
+              <div style="position: absolute; left: {{t.x}}px; top: 0; width: 10px; margin-left: -5px; text-align: center; font-size: 9px; line-height: 9px">{{t.label}}</div>
+            </sc-for>
+            <div style="position: absolute; left: 0; top: 12px; width: 57px; height: 3px; background: {{c.fg}}"></div>
+            <sc-for list="{{frets}}" as="f" hint-placeholder-count="4">
+              <div style="position: absolute; left: 0; top: {{f.y}}px; width: 57px; height: 1px; background: {{c.line}}"></div>
+            </sc-for>
+            <sc-for list="{{strs}}" as="s" hint-placeholder-count="6">
+              <div style="position: absolute; left: {{s.x}}px; top: 12px; width: 1px; height: 60px; background: {{c.line}}"></div>
+            </sc-for>
+            <sc-for list="{{c.dots}}" as="d" hint-placeholder-count="3">
+              <div style="position: absolute; left: {{d.x}}px; top: {{d.y}}px; width: 10px; height: 10px; margin-left: -4.5px; margin-top: -5px; border-radius: 50%; background: {{c.dot}}"></div>
+            </sc-for>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+            <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase">{{c.label}}</span>
+            <span style="font-family: {{c.font}}; font-weight: 700; font-size: {{c.size}}px; line-height: 1.05">{{c.name}}</span>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="display: flex; gap: 6px" role="img" aria-label="Takt: 2-zarb / 4">
+      <div style="flex: 1; height: 6px; border-radius: 3px; background: {{accent}}"></div>
+      <div style="flex: 1; height: 6px; border-radius: 3px; background: {{accent}}"></div>
+      <div style="flex: 1; height: 6px; border-radius: 3px; background: #DADCD6"></div>
+      <div style="flex: 1; height: 6px; border-radius: 3px; background: #DADCD6"></div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 18px; background: #FFFFFF; border: 1px solid #DADCD6">
+      <sc-for list="{{sections}}" as="sec" hint-placeholder-count="2">
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <span style="font-size: 12px; font-weight: 600; color: #5B6068">{{sec.title}}</span>
+          <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px">
+            <sc-for list="{{sec.bars}}" as="b" hint-placeholder-count="4">
+              <button type="button" aria-label="{{b.aria}}" onClick="{{b.seek}}" style="height: 44px; border-radius: 10px; border: 1px solid {{b.border}}; background: {{b.bg}}; color: {{b.fg}}; font-family: {{b.font}}; font-weight: 600; font-size: {{b.fs}}px">{{b.c}}</button>
+            </sc-for>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 8px">
+      <div style="display: flex; align-items: center; justify-content: space-between; height: 44px; padding: 0 2px; border-radius: 12px; background: #FFFFFF; border: 1px solid #DADCD6">
+        <button type="button" aria-label="Yarim ton pastga" onClick="{{down}}" style="width: 40px; height: 40px; border: 0; border-radius: 10px; background: none; color: #15171A; font-size: 18px">−</button>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px">Ton {{shiftLabel}}</span>
+        <button type="button" aria-label="Yarim ton yuqoriga" onClick="{{up}}" style="width: 40px; height: 40px; border: 0; border-radius: 10px; background: none; color: #15171A; font-size: 18px">+</button>
+      </div>
+      <button type="button" style="height: 44px; border-radius: 12px; border: 1px solid #DADCD6; background: #FFFFFF; color: #15171A; font-size: 13px; font-weight: 600">Kapo 0</button>
+      <button type="button" onClick="{{cycleSpeed}}" style="height: 44px; border-radius: 12px; border: 1px solid {{speedBorder}}; background: #FFFFFF; color: #15171A; font-size: 13px; font-weight: 600">Tezlik {{speed}}</button>
+    </div>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 12px; margin: 12px 12px 14px; padding: 10px 12px; border-radius: 18px; background: #15171A; color: #FFFFFF">
+    <button type="button" aria-label="{{playAria}}" onClick="{{togglePlay}}" style="width: 48px; height: 48px; flex: none; border-radius: 50%; border: 0; background: {{accent}}; color: #FFFFFF; display: inline-flex; align-items: center; justify-content: center">
+      <sc-if value="{{playing}}" hint-placeholder-val="{{ true }}">
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+      </sc-if>
+      <sc-if value="{{paused}}" hint-placeholder-val="{{ false }}">
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+      </sc-if>
+    </button>
+    <div style="flex: 1; display: flex; flex-direction: column; gap: 6px">
+      <div style="height: 4px; border-radius: 2px; background: #3A3D42"><div style="width: {{progress}}%; height: 4px; border-radius: 2px; background: #8FA8FF"></div></div>
+      <div style="display: flex; justify-content: space-between; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #C4C7C1"><span>{{timeNow}}</span><span>3:15</span></div>
+    </div>
+    <button type="button" aria-label="Boʻlimni takrorlash" aria-pressed="{{loopPressed}}" onClick="{{toggleLoop}}" style="width: 44px; height: 44px; flex: none; border-radius: 12px; border: 1px solid {{loopBorder}}; background: none; color: #FFFFFF; display: inline-flex; align-items: center; justify-content: center">
+      <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l3 3-3 3"/><path d="M4 11V9a4 4 0 0 1 4-4h12"/><path d="M7 22l-3-3 3-3"/><path d="M20 13v2a4 4 0 0 1-4 4H4"/></svg></button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#2F5BFF","options":["#2F5BFF","#12805C","#15171A"]},"notation":{"editor":"enum","options":["harf","solfej"],"default":"harf"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { cur: 5, shift: 0, playing: true, loop: false, speed: 1 }; }
+  renderVals() {
+    const accent = this.props.accent ?? '#2F5BFF';
+    const sol = (this.props.notation ?? 'harf') === 'solfej';
+    const NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const SOL = ['Do', 'Do#', 'Re', 'Re#', 'Mi', 'Fa', 'Fa#', 'Sol', 'Sol#', 'Lya', 'Lya#', 'Si'];
+    const SHAPES = {
+      'C': ['x', 3, 2, 0, 1, 0], 'G': [3, 2, 0, 0, 0, 3], 'D': ['x', 'x', 0, 2, 3, 2], 'A': ['x', 0, 2, 2, 2, 0],
+      'E': [0, 2, 2, 1, 0, 0], 'F': [1, 3, 3, 2, 1, 1], 'Am': ['x', 0, 2, 2, 1, 0], 'Em': [0, 2, 2, 0, 0, 0],
+      'Dm': ['x', 'x', 0, 2, 3, 1], 'Bm': ['x', 2, 4, 4, 3, 2], 'F#m': [2, 4, 4, 2, 2, 2], 'Bb': ['x', 1, 3, 3, 3, 1],
+      'C#m': ['x', 4, 6, 6, 5, 4], 'G#': [4, 6, 6, 5, 4, 4], 'D#': ['x', 'x', 1, 3, 4, 3], 'A#': ['x', 1, 3, 3, 3, 1]
+    };
+    const shift = this.state.shift;
+    const tr = (ch) => {
+      const m = ch.endsWith('m');
+      const root = m ? ch.slice(0, -1) : ch;
+      const i = (NAMES.indexOf(root) + shift + 12) % 12;
+      return { letter: NAMES[i] + (m ? 'm' : ''), solf: SOL[i] + (m ? ' minor' : ' major') };
+    };
+    const label = (ch) => { const t = tr(ch); return sol ? t.solf : t.letter; };
+    const seq = [
+      { title: 'Kirish', bars: ['Am', 'F', 'C', 'G'] },
+      { title: 'Kuplet', bars: ['Am', 'F', 'C', 'G', 'Am', 'F', 'G', 'E'] }
+    ];
+    const flat = [];
+    seq.forEach((s) => s.bars.forEach((b) => flat.push(b)));
+    const cur = this.state.cur;
+    const sp = 11.2, fr = 15;
+    const diag = (ch) => {
+      const s = SHAPES[tr(ch).letter] || SHAPES['C'];
+      const nums = s.filter((v) => typeof v === 'number' && v > 0);
+      const base = nums.length && Math.min.apply(null, nums) > 2 ? Math.min.apply(null, nums) - 1 : 0;
+      return {
+        tops: s.map((v, i) => ({ x: i * sp, label: v === 'x' ? '×' : (v === 0 ? '○' : '') })),
+        dots: s.map((v, i) => ({ v, i })).filter((p) => typeof p.v === 'number' && p.v > 0)
+          .map((p) => ({ x: p.i * sp, y: 12 + (p.v - base - 0.5) * fr }))
+      };
+    };
+    const nowCh = flat[cur], nextCh = flat[(cur + 1) % flat.length];
+    let n = 0;
+    const sections = seq.map((s) => ({
+      title: s.title,
+      bars: s.bars.map((b) => {
+        const idx = n++;
+        const on = idx === cur;
+        return {
+          c: label(b), aria: label(b) + ' — shu joyga oʻtish',
+          bg: on ? accent : (idx < cur ? '#F4F5F2' : '#FFFFFF'),
+          fg: on ? '#FFFFFF' : (idx < cur ? '#6B7078' : '#15171A'),
+          border: on ? accent : '#E3E5E0',
+          font: sol ? "'Bricolage Grotesque', sans-serif" : "'IBM Plex Mono', monospace",
+          fs: sol ? 11 : 16,
+          seek: () => this.setState({ cur: idx })
+        };
+      })
+    }));
+    const speeds = [1, 0.75, 0.5];
+    const total = flat.length;
+    const prog = Math.round(((cur + 0.5) / total) * 100);
+    const secs = Math.round(195 * prog / 100);
+    return {
+      accent,
+      keyName: label('Am').replace(' minor', 'm'),
+      progress: prog,
+      timeNow: Math.floor(secs / 60) + ':' + String(secs % 60).padStart(2, '0'),
+      frets: [1, 2, 3, 4].map((k) => ({ y: 12 + k * fr })),
+      strs: [0, 1, 2, 3, 4, 5].map((i) => ({ x: i * sp })),
+      pair: [
+        Object.assign({ label: 'Hozir', name: label(nowCh), aria: label(nowCh) + ' akkordi diagrammasi', bg: accent, fg: '#FFFFFF', border: accent, line: 'rgba(255,255,255,0.45)', dot: '#FFFFFF', size: sol ? 20 : 34, font: sol ? "'Bricolage Grotesque', sans-serif" : "'IBM Plex Mono', monospace" }, diag(nowCh)),
+        Object.assign({ label: 'Keyingi', name: label(nextCh), aria: label(nextCh) + ' akkordi diagrammasi', bg: '#FFFFFF', fg: '#15171A', border: '#DADCD6', line: '#C4C7C1', dot: accent, size: sol ? 17 : 28, font: sol ? "'Bricolage Grotesque', sans-serif" : "'IBM Plex Mono', monospace" }, diag(nextCh))
+      ],
+      sections,
+      shiftLabel: shift > 0 ? '+' + shift : (shift < 0 ? '−' + Math.abs(shift) : '0'),
+      up: () => this.setState({ shift: Math.min(6, shift + 1) }),
+      down: () => this.setState({ shift: Math.max(-6, shift - 1) }),
+      speed: this.state.speed + '×',
+      speedBorder: this.state.speed !== 1 ? accent : '#DADCD6',
+      cycleSpeed: () => this.setState({ speed: speeds[(speeds.indexOf(this.state.speed) + 1) % speeds.length] }),
+      playing: this.state.playing,
+      paused: !this.state.playing,
+      playAria: this.state.playing ? 'Pauza' : 'Ijro etish',
+      togglePlay: () => this.setState({ playing: !this.state.playing }),
+      loopPressed: this.state.loop ? 'true' : 'false',
+      loopBorder: this.state.loop ? '#8FA8FF' : '#3A3D42',
+      toggleLoop: () => this.setState({ loop: !this.state.loop })
+    };
+  }
+}
+</script>
+</body>
+</html>

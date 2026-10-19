@@ -25,6 +25,16 @@ export function chordTones(chord: Chord): number[] {
 /** Usual guitar spelling of a root: Eb, Ab, Bb with flats; C#, F# with sharps. */
 export const prefersFlat = (pc: number) => [3, 8, 10].includes(mod12(pc));
 
+/** A canonical chord (as the API sends it), spelled the usual guitar way. */
+export function spelled(chord: { root: number; quality: Quality }): Chord {
+  return { root: mod12(chord.root), quality: chord.quality, flat: prefersFlat(chord.root) };
+}
+
+/** Chord moved by `semitones`, spelled the usual guitar way for its new root. */
+export function transpose(chord: Chord, semitones: number): Chord {
+  return spelled({ ...chord, root: chord.root + semitones });
+}
+
 /** Open-string pitches as MIDI numbers, string 6 (low E) first. */
 export const OPEN_MIDI = [40, 45, 50, 55, 59, 64];
 

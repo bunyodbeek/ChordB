@@ -1,4 +1,59 @@
-import type { Voicing } from "../chords";
+import type { Frets, Voicing } from "../chords";
+
+// Mini diagram for the player cards: geometry from song-player.reference.html.
+const MINI_SP = 11.2; // between strings
+const MINI_FR = 15; // between frets
+const MINI_TOP = 12; // nut
+
+export interface MiniColors {
+  fg: string; // nut and ×/○ marks
+  line: string; // strings and frets
+  dot: string;
+}
+
+/** 56×72 chord box with a dot on every fretted string; empty when `frets` is null. */
+export function MiniChordDiagram({
+  frets,
+  colors,
+  label,
+}: {
+  frets: Frets | null;
+  colors: MiniColors;
+  label: string;
+}) {
+  const fretted = frets?.filter((f) => f > 0) ?? [];
+  const lowest = fretted.length ? Math.min(...fretted) : 0;
+  const base = lowest > 2 ? lowest - 1 : 0;
+  return (
+    <div role="img" aria-label={label} className="mini-diagram" style={{ color: colors.fg }}>
+      {frets?.map((f, i) => (
+        <div key={`t${i}`} className="md-top" style={{ left: i * MINI_SP }}>
+          {f < 0 ? "×" : f === 0 ? "○" : ""}
+        </div>
+      ))}
+      <div className="md-nut" style={{ background: colors.fg }} />
+      {[1, 2, 3, 4].map((k) => (
+        <div key={`f${k}`} className="md-fret" style={{ top: MINI_TOP + k * MINI_FR, background: colors.line }} />
+      ))}
+      {[0, 1, 2, 3, 4, 5].map((i) => (
+        <div key={`s${i}`} className="md-string" style={{ left: i * MINI_SP, background: colors.line }} />
+      ))}
+      {frets?.map((f, i) =>
+        f > 0 ? (
+          <div
+            key={`d${i}`}
+            className="md-dot"
+            style={{
+              left: i * MINI_SP,
+              top: MINI_TOP + (f - base - 0.5) * MINI_FR,
+              background: colors.dot,
+            }}
+          />
+        ) : null,
+      )}
+    </div>
+  );
+}
 
 const LEFT = 18;
 const GAP_X = 14; // between strings

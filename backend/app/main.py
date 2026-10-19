@@ -2,7 +2,7 @@ from fastapi import APIRouter, FastAPI
 
 from chordb_common.config import get_settings
 
-from app.routes import me
+from app.routes import admin, me, songs
 
 settings = get_settings()
 is_dev = settings.env == "dev"
@@ -16,6 +16,8 @@ app = FastAPI(
 
 api = APIRouter(prefix="/api")
 api.include_router(me.router)
+api.include_router(songs.router)
+api.include_router(admin.router)
 
 
 @api.get("/healthz", include_in_schema=False)
