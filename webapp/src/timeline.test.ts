@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { activeIndex, beatOf, formatTime, groupBySection, sectionBounds } from "./timeline";
+import {
+  activeIndex,
+  autoTimeline,
+  beatFromBeats,
+  beatOf,
+  formatTime,
+  groupBySection,
+  sectionBounds,
+} from "./timeline";
 
 const ev = (time_sec: number, section_id: number | null = null) => ({ time_sec, section_id });
 const EVENTS = [ev(0, 1), ev(4, 1), ev(8, 2), ev(12, 2), ev(16, 2)];
@@ -76,4 +84,46 @@ it("formats times", () => {
   expect(formatTime(0)).toBe("0:00");
   expect(formatTime(75.9)).toBe("1:15");
   expect(formatTime(195)).toBe("3:15");
+});
+
+describe("autoTimeline", () => {
+  const seg = (start_sec: number, chord: string | null) => ({ start_sec, chord });
+
+  it("numbers chunks of 8 chord changes", () => {
+    const segs = Array.from({ length: 19 }, (_, i) => seg(i * 2, i % 5 === 4 ? null : `c${i}`));
+    const { events, sections } = autoTimeline(segs, (n) => `${n}-qism`);
+    expect(events).toHaveLength(19);
+    expect(events[0]).toEqual({ time_sec: 0, section_id: 1, chord: "c0" });
+    expect(events[4].chord).toBeNull();
+    expect(events[8].section_id).toBe(2);
+    expect(sections).toEqual([
+      { id: 1, title: "1-qism", start_sec: 0 },
+      { id: 2, title: "2-qism", start_sec: 16 },
+      { id: 3, title: "3-qism", start_sec: 32 },
+    ]);
+    // Works with the existing grid grouping.
+    expect(groupBySection(sections, events).map((g) => g.items.length)).toEqual([8, 8, 3]);
+  });
+
+  it("handles no segments", () => {
+    expect(autoTimeline([], String)).toEqual({ events: [], sections: [] });
+  });
+});
+
+describe("beatFromBeats", () => {
+  const BEATS = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5];
+
+  it("counts beats since the chord started, cycling every 4", () => {
+    expect(beatFromBeats(BEATS, 0.5, 0.6)).toBe(0);
+    expect(beatFromBeats(BEATS, 0.5, 1.2)).toBe(1);
+    expect(beatFromBeats(BEATS, 0.5, 2.1)).toBe(3);
+    expect(beatFromBeats(BEATS, 0.5, 2.6)).toBe(0); // 5th beat of a held chord
+    expect(beatFromBeats(BEATS, 2.0, 2.2)).toBe(0); // a new chord restarts the count
+    expect(beatFromBeats(BEATS, 1.999, 2.2)).toBe(0); // rounded start
+  });
+
+  it("is 0 before the first beat or without beats", () => {
+    expect(beatFromBeats(BEATS, 0, 0.2)).toBe(0);
+    expect(beatFromBeats([], 0, 5)).toBe(0);
+  });
 });

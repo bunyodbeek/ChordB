@@ -1,4 +1,5 @@
-// Song player — follows song-player.reference.html.
+// Song player — follows song-player.reference.html. Also plays analysed songs
+// (AnalysisPlayer.tsx): both are turned into a PlayerModel.
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ApiError, api, type ChordJson, type SongDetail, type SongSummary } from "../api";
@@ -9,12 +10,15 @@ import { t } from "../texts";
 import {
   BEATS_PER_BAR,
   activeIndex,
+  beatFromBeats,
   beatOf,
   formatTime,
   groupBySection,
   sectionBounds,
+  type TimedEvent,
+  type TimedSection,
 } from "../timeline";
-import { useVideo } from "../useVideo";
+import { useVideo, type MediaSource } from "../useVideo";
 import { YTState, type YTPlayer } from "../youtube";
 import { MiniChordDiagram, type MiniColors } from "./ChordDiagram";
 
@@ -27,12 +31,60 @@ const ACCENT = "var(--blue)";
 const NOW_COLORS: MiniColors = { fg: "#ffffff", line: "rgba(255,255,255,0.45)", dot: "#ffffff" };
 const NEXT_COLORS: MiniColors = { fg: "var(--text)", line: "#c4c7c1", dot: ACCENT };
 
+export type PlayerEvent = TimedEvent & { chord: ChordJson | null }; // null = no chord
+
+/** Everything the player shows; built from a song or from an analysis. */
+export interface PlayerModel {
+  title: string;
+  subtitle: string; // artist, or where an analysis came from
+  key: ChordJson | null;
+  capo: number;
+  tag: { label: string; className: string };
+  note?: string; // e.g. "chords may contain errors"
+  durationSec: number;
+  sections: TimedSection[];
+  events: PlayerEvent[];
+  beats: number[] | null; // detected beats drive the beat bar when known
+  media: MediaSource;
+  youtubeId: string | null; // "open on YouTube" when the embed is refused
+  startSec: number;
+  onSave?: (positionSec: number) => void;
+  onPickFile?: (file: File) => void; // a file analysis whose file isn't in this browser
+  fileName?: string;
+}
+
 interface Props {
   songId: number;
   notation: NotationKind;
   onBack: () => void;
   onPaywall: (song: SongSummary) => void;
   onEdit?: () => void; // admins: open the chord editor
+}
+
+export function songModel(song: SongDetail): PlayerModel {
+  const resumeAt =
+    song.position_sec && song.position_sec >= 1 && song.position_sec < song.duration_sec - 5
+      ? song.position_sec
+      : 0;
+  return {
+    title: song.title,
+    subtitle: song.artist,
+    key: song.key,
+    capo: song.capo,
+    tag: { label: t.songs.levels[song.difficulty], className: song.difficulty },
+    durationSec: song.duration_sec,
+    sections: song.sections,
+    events: song.events.map((e) => ({
+      time_sec: e.time_sec,
+      section_id: e.section_id,
+      chord: { root: e.root, quality: e.quality },
+    })),
+    beats: null,
+    media: { kind: "youtube", id: song.youtube_id },
+    youtubeId: song.youtube_id,
+    startSec: resumeAt,
+    onSave: (sec) => void api.saveProgress(song.id, sec),
+  };
 }
 
 export function SongPlayer({ songId, notation, onBack, onPaywall, onEdit }: Props) {
@@ -61,27 +113,32 @@ export function SongPlayer({ songId, notation, onBack, onPaywall, onEdit }: Prop
     };
   }, [songId, attempt, onBack, onPaywall]);
 
-  if (!song) {
-    return (
-      <div className="page player-page">
-        {failed ? (
-          <div className="song-list-note">
-            <p>{t.loadFailed}</p>
-            <button type="button" className="button" onClick={() => setAttempt((n) => n + 1)}>
-              {t.retry}
-            </button>
-          </div>
-        ) : (
-          <div className="center muted">{t.loading}</div>
-        )}
-      </div>
-    );
+  const model = useMemo(() => (song ? songModel(song) : null), [song]);
+  if (!model) {
+    return <PlayerLoading failed={failed} onRetry={() => setAttempt((n) => n + 1)} />;
   }
   return (
     <>
       <BrowserBack onBack={onBack} />
-      <Player song={song} notation={notation} onEdit={onEdit} />
+      <Player model={model} notation={notation} onEdit={onEdit} />
     </>
+  );
+}
+
+export function PlayerLoading({ failed, onRetry }: { failed: boolean; onRetry: () => void }) {
+  return (
+    <div className="page player-page">
+      {failed ? (
+        <div className="song-list-note">
+          <p>{t.loadFailed}</p>
+          <button type="button" className="button" onClick={onRetry}>
+            {t.retry}
+          </button>
+        </div>
+      ) : (
+        <div className="center muted">{t.loading}</div>
+      )}
+    </div>
   );
 }
 
@@ -97,22 +154,17 @@ export function BrowserBack({ onBack }: { onBack: () => void }) {
   );
 }
 
-function Player({
-  song,
+export function Player({
+  model,
   notation,
   onEdit,
 }: {
-  song: SongDetail;
+  model: PlayerModel;
   notation: NotationKind;
   onEdit?: () => void;
 }) {
-  const resumeAt =
-    song.position_sec && song.position_sec >= 1 && song.position_sec < song.duration_sec - 5
-      ? song.position_sec
-      : 0;
-
   const [shift, setShift] = useState(0);
-  const [capo, setCapo] = useState(song.capo);
+  const [capo, setCapo] = useState(model.capo);
   const [speed, setSpeed] = useState(1);
   const [loop, setLoop] = useState<{ start: number; end: number } | null>(null);
   const loopRef = useRef(loop);
@@ -121,11 +173,15 @@ function Player({
 
   const save = (p: YTPlayer) => {
     const now = p.getCurrentTime();
-    if (now > 0) void api.saveProgress(song.id, now);
+    if (now > 0) model.onSave?.(now);
     lastSave.current = Date.now();
   };
 
-  const video = useVideo(song.youtube_id, resumeAt, {
+  const video = useVideo(model.media, model.startSec, {
+    onReady: (p) => {
+      // A new <audio> (a re-picked file) starts at normal speed; keep the chosen one.
+      if (speed !== 1) p.setPlaybackRate(speed);
+    },
     onStateChange: (state, p) => {
       if (state === YTState.PAUSED || state === YTState.ENDED) save(p);
     },
@@ -142,7 +198,7 @@ function Player({
     onDispose: save,
   });
   const { time, playing, ready, error: videoError } = video;
-  const duration = video.duration ?? song.duration_sec;
+  const duration = video.duration ?? model.durationSec;
 
   // Save when Telegram is minimised or the phone locks.
   useEffect(() => {
@@ -153,23 +209,27 @@ function Player({
     return () => document.removeEventListener("visibilitychange", onHide);
   });
 
-  const events = song.events;
+  const { events, sections } = model;
   const index = activeIndex(events, time);
-  const beat = beatOf(events, index, time, duration);
-  const groups = useMemo(() => groupBySection(song.sections, events), [song.sections, events]);
+  const beat =
+    model.beats && index >= 0
+      ? beatFromBeats(model.beats, events[index].time_sec, time)
+      : beatOf(events, index, time, duration);
+  const groups = useMemo(() => groupBySection(sections, events), [sections, events]);
 
   // Shapes are shown relative to the capo: Am with capo 2 is played as a Gm shape.
   const shown = (c: ChordJson): Chord => transpose(spelled(c), shift - capo);
-  const name = (c: ChordJson) => formatChord(shown(c), notation);
-  const nowChord = index >= 0 ? events[index] : null;
-  const nextChord = index + 1 < events.length ? events[index + 1] : null;
+  const name = (c: ChordJson | null) => (c ? formatChord(shown(c), notation) : "—");
+  const nowChord = index >= 0 ? events[index].chord : null;
+  const nextChord = index + 1 < events.length ? events[index + 1].chord : null;
   const sol = notation === "solfege";
+  const isFile = model.media.kind === "file";
 
   const seek = (sec: number) => {
     if (!ready) return;
     haptic.tap();
     video.seek(sec);
-    if (loop) setLoop(sectionBounds(song.sections, sec, duration));
+    if (loop) setLoop(sectionBounds(sections, sec, duration));
   };
   const togglePlay = () => {
     haptic.tap();
@@ -183,12 +243,12 @@ function Player({
   };
   const toggleLoop = () => {
     haptic.tap();
-    setLoop(loop ? null : sectionBounds(song.sections, time, duration));
+    setLoop(loop ? null : sectionBounds(sections, time, duration));
   };
 
   const progress = duration > 0 ? Math.min(100, (time / duration) * 100) : 0;
   const card = (label: string, chord: ChordJson | null, now: boolean) => {
-    const display = chord ? name(chord) : "—";
+    const display = name(chord);
     return (
       <div className={`chord-now${now ? " is-now" : ""}`}>
         <MiniChordDiagram
@@ -216,10 +276,10 @@ function Player({
     <div className="page player-page">
       <div className="player-head">
         <div className="player-head-text">
-          <h1>{song.title}</h1>
+          <h1>{model.title}</h1>
           <span className="muted">
-            {song.artist} · {formatChord(shown(song.key), notation)} ·{" "}
-            {capo === 0 ? t.player.noCapo : t.player.capo(capo)}
+            {model.subtitle} · {model.key ? formatChord(shown(model.key), notation) : t.analyze.noKey}{" "}
+            · {capo === 0 ? t.player.noCapo : t.player.capo(capo)}
           </span>
         </div>
         <div className="player-head-side">
@@ -228,22 +288,33 @@ function Player({
               {t.player.edit}
             </button>
           )}
-          <span className={`tag big ${song.difficulty}`}>{t.songs.levels[song.difficulty]}</span>
+          <span className={`tag big ${model.tag.className}`}>{model.tag.label}</span>
         </div>
       </div>
+      {model.note && <p className="player-note">{model.note}</p>}
 
-      <div className="video">
+      <div className={`video${isFile ? " audio" : ""}`}>
         <div ref={video.hostRef} className="video-host" />
-        {videoError && (
+        {isFile && (
+          <AudioFace
+            name={model.fileName}
+            missing={model.media.kind === "file" && !model.media.url}
+            failed={videoError !== null}
+            onPick={model.onPickFile}
+          />
+        )}
+        {videoError && !isFile && (
           <div className="video-error">
             <p>{videoError === "blocked" ? t.player.videoBlocked : t.player.videoFailed}</p>
-            <button
-              type="button"
-              className="button"
-              onClick={() => openLink(`https://www.youtube.com/watch?v=${song.youtube_id}`)}
-            >
-              {t.player.openOnYouTube}
-            </button>
+            {model.youtubeId && (
+              <button
+                type="button"
+                className="button"
+                onClick={() => openLink(`https://www.youtube.com/watch?v=${model.youtubeId}`)}
+              >
+                {t.player.openOnYouTube}
+              </button>
+            )}
           </div>
         )}
         <div className="video-progress">
@@ -271,7 +342,7 @@ function Player({
               {g.title && <span className="section-name">{g.title}</span>}
               <div className="section-bars">
                 {g.items.map(({ event, index: i }) => {
-                  const label = name(event);
+                  const label = name(event.chord);
                   return (
                     <button
                       key={i}
@@ -392,6 +463,51 @@ function Player({
           </svg>
         </button>
       </div>
+    </div>
+  );
+}
+
+/** What the video frame shows for a local file: its name, or a picker when it's missing. */
+function AudioFace({
+  name,
+  missing,
+  failed,
+  onPick,
+}: {
+  name?: string;
+  missing: boolean;
+  failed: boolean;
+  onPick?: (file: File) => void;
+}) {
+  return (
+    <div className="audio-face">
+      <svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M9 18V5l12-2v13" />
+        <circle cx="6" cy="18" r="3" />
+        <circle cx="18" cy="16" r="3" />
+      </svg>
+      {name && <span className="audio-name">{name}</span>}
+      {(missing || failed) && (
+        <>
+          <span className="audio-hint">{failed ? t.analyze.fileFailed : t.analyze.fileMissing}</span>
+          {onPick && (
+            <label className="button audio-pick">
+              {t.analyze.pickFile}
+              <input
+                type="file"
+                accept="audio/*,video/*"
+                className="sr-only"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = "";
+                  if (f) onPick(f);
+                }}
+              />
+            </label>
+          )}
+        </>
+      )}
     </div>
   );
 }

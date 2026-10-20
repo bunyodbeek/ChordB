@@ -6,6 +6,7 @@ import { spelled } from "../chords";
 import { formatChord, type NotationKind } from "../notation";
 import { haptic } from "../telegram";
 import { t } from "../texts";
+import { AnalyzeCard } from "./AnalyzeCard";
 
 type FilterKey = "easy" | "uzbek" | "no_capo";
 const FILTERS: FilterKey[] = ["easy", "uzbek", "no_capo"];
@@ -29,9 +30,10 @@ interface Props {
   onOpen: (song: SongSummary) => void;
   onLocked: (song: SongSummary) => void;
   onAdmin?: () => void; // admins only: song management
+  onOpenAnalysis: (analysisId: number) => void;
 }
 
-export function SongsList({ notation, isAdmin, onOpen, onLocked, onAdmin }: Props) {
+export function SongsList({ notation, isAdmin, onOpen, onLocked, onAdmin, onOpenAnalysis }: Props) {
   const [q, setQ] = useState("");
   const [filters, setFilters] = useState(NO_FILTERS);
   const [data, setData] = useState<SongsResponse | null>(null);
@@ -80,6 +82,8 @@ export function SongsList({ notation, isAdmin, onOpen, onLocked, onAdmin }: Prop
       ) : (
         <h1 className="songs-h1">{t.tabs.songs}</h1>
       )}
+
+      <AnalyzeCard notation={notation} onOpen={onOpenAnalysis} />
 
       <div className="search">
         <label htmlFor="qs" className="sr-only">

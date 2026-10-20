@@ -88,3 +88,52 @@ export function formatTime(sec: number): string {
   const s = Math.max(0, Math.floor(sec));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
+
+// --- automatically analysed songs ---------------------------------------------------
+
+/** Chord changes per numbered chunk; analyses have no real sections. */
+export const AUTO_SECTION_LEN = 8;
+
+export interface AutoSegment<C> {
+  start_sec: number;
+  chord: C | null; // null = no chord
+}
+
+/**
+ * Analysis segments as player events, grouped into chunks of AUTO_SECTION_LEN chord
+ * changes so the sections grid and the section loop have a sensible unit.
+ */
+export function autoTimeline<C>(
+  segments: readonly AutoSegment<C>[],
+  title: (n: number) => string,
+): { events: (TimedEvent & { chord: C | null })[]; sections: TimedSection[] } {
+  const events = segments.map((s, i) => ({
+    time_sec: s.start_sec,
+    section_id: Math.floor(i / AUTO_SECTION_LEN) + 1,
+    chord: s.chord,
+  }));
+  const sections: TimedSection[] = [];
+  for (let i = 0; i < events.length; i += AUTO_SECTION_LEN) {
+    const n = i / AUTO_SECTION_LEN + 1;
+    sections.push({ id: n, title: title(n), start_sec: events[i].time_sec });
+  }
+  return { events, sections };
+}
+
+/**
+ * Beat (0..3) within the chord that started at `start`, counting the detected beats
+ * since then; cycles every 4 beats while a chord is held. 0 before the first beat.
+ */
+export function beatFromBeats(beats: readonly number[], start: number, t: number): number {
+  const EPS = 0.05; // chord starts are rounded beat times
+  let lo = 0;
+  let hi = beats.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (beats[mid] < start - EPS) lo = mid + 1;
+    else hi = mid;
+  }
+  let n = 0;
+  for (let i = lo; i < beats.length && beats[i] <= t; i++) n++;
+  return n === 0 ? 0 : (n - 1) % BEATS_PER_BAR;
+}

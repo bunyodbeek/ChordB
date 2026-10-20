@@ -86,6 +86,51 @@ export interface SongFilters {
 
 export type EventType = "tuner_opened" | "write_access_requested" | "write_access_granted";
 
+// --- chord detection (/api/analyze) ---
+
+export type AnalysisStatus = "queued" | "running" | "done" | "failed";
+
+export interface AnalysisSummary {
+  id: number;
+  source: "upload" | "youtube";
+  source_ref: string; // the YouTube URL or the uploaded file's name
+  title: string | null;
+  youtube_id: string | null;
+  status: AnalysisStatus;
+  error_code: string | null;
+  cache_hit: boolean;
+  key: ChordJson | null;
+  bpm: number | null;
+  duration_sec: number | null;
+  chords_preview: ChordJson[];
+  created_at: string;
+  finished_at: string | null;
+}
+
+export interface AnalysisEvent {
+  start_sec: number;
+  end_sec: number;
+  chord: ChordJson | null; // null = no chord
+  confidence: number;
+}
+
+export interface AnalysisDetail extends AnalysisSummary {
+  beats: number[] | null; // set once done
+  events: AnalysisEvent[] | null;
+}
+
+export interface AnalysisHistory {
+  remaining_today: number | null; // null = unlimited (premium)
+  daily_limit: number;
+  items: AnalysisSummary[];
+}
+
+/** `detail.code` of an /api/analyze error ("daily_limit", "file_too_large", …). */
+export function errorCode(e: unknown): string | null {
+  if (!(e instanceof ApiError)) return null;
+  return (e.detail as { code?: string } | null)?.code ?? null;
+}
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -117,16 +162,39 @@ async function request<T>(
   });
   if (!res.ok) {
     const detail = await res.json().then((j) => j.detail, () => null);
-    // FastAPI validation errors are a list of {msg}; our own errors are strings.
-    const message =
-      typeof detail === "string"
-        ? detail
-        : Array.isArray(detail)
-          ? detail.map((d: { msg?: string }) => d.msg).join("; ")
-          : res.statusText;
-    throw new ApiError(res.status, message, detail);
+    throw toApiError(res.status, detail, res.statusText);
   }
   return (res.status === 204 ? undefined : await res.json()) as T;
+}
+
+function toApiError(status: number, detail: unknown, fallback: string): ApiError {
+  // FastAPI validation errors are a list of {msg}; our own errors are strings or {code}.
+  const message =
+    typeof detail === "string"
+      ? detail
+      : Array.isArray(detail)
+        ? detail.map((d: { msg?: string }) => d.msg).join("; ")
+        : ((detail as { code?: string } | null)?.code ?? fallback);
+  return new ApiError(status, message, detail);
+}
+
+/** Multipart upload with progress (fetch can't report upload progress). */
+function upload<T>(path: string, file: File, onProgress: (fraction: number) => void): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `/api${path}`);
+    xhr.setRequestHeader("Authorization", `tma ${getInitData()}`);
+    xhr.responseType = "json";
+    xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(e.loaded / e.total);
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) resolve(xhr.response as T);
+      else reject(toApiError(xhr.status, xhr.response?.detail ?? null, xhr.statusText));
+    };
+    xhr.onerror = () => reject(new TypeError("network error"));
+    const form = new FormData();
+    form.append("file", file, file.name);
+    xhr.send(form);
+  });
 }
 
 function query(filters: SongFilters): string {
@@ -150,6 +218,15 @@ export const api = {
   // Best effort, like events: losing one progress save must not break playback.
   saveProgress: (id: number, positionSec: number) =>
     request<void>("PUT", `/songs/${id}/progress`, { position_sec: positionSec }).catch(() => {}),
+
+  analyze: {
+    youtube: (url: string) =>
+      request<AnalysisDetail>("POST", "/analyze", { youtube_url: url }),
+    file: (file: File, onProgress: (fraction: number) => void) =>
+      upload<AnalysisDetail>("/analyze", file, onProgress),
+    get: (id: number) => request<AnalysisDetail>("GET", `/analyze/${id}`),
+    history: () => request<AnalysisHistory>("GET", "/analyze/history"),
+  },
 
   // ADMIN_IDS only (me.is_admin).
   admin: {

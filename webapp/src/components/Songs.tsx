@@ -4,6 +4,7 @@ import type { SongSummary } from "../api";
 import type { NotationKind } from "../notation";
 import { t } from "../texts";
 import { AdminSongs } from "./admin/AdminSongs";
+import { AnalysisPlayer } from "./AnalysisPlayer";
 import { ChordEditor } from "./admin/ChordEditor";
 import { SongForm } from "./admin/SongForm";
 import { SongPlayer } from "./SongPlayer";
@@ -12,6 +13,7 @@ import { SongsList } from "./SongsList";
 type View =
   | { name: "list" }
   | { name: "player"; id: number }
+  | { name: "analysis"; id: number }
   | { name: "admin" }
   | { name: "form"; id: number | null }
   | { name: "editor"; id: number };
@@ -49,6 +51,7 @@ export function Songs({ notation, isAdmin, onFullscreen }: Props) {
           onOpen={(s) => push({ name: "player", id: s.id })}
           onLocked={setPaywall}
           onAdmin={isAdmin ? () => push({ name: "admin" }) : undefined}
+          onOpenAnalysis={(id) => push({ name: "analysis", id })}
         />
       );
       break;
@@ -62,6 +65,11 @@ export function Songs({ notation, isAdmin, onFullscreen }: Props) {
           onPaywall={setPaywall}
           onEdit={isAdmin ? () => push({ name: "editor", id: view.id }) : undefined}
         />
+      );
+      break;
+    case "analysis":
+      screen = (
+        <AnalysisPlayer key={view.id} analysisId={view.id} notation={notation} onBack={back} />
       );
       break;
     case "admin":

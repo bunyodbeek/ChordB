@@ -8,6 +8,14 @@ dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
     "alembic>=1.14",
+    "librosa>=0.11",
+    "numpy>=2.0",
+    "scipy>=1.13",
+    "soundfile>=0.12",
+    "python-multipart>=0.0.20",
+    "yt-dlp[deno]>=2026.1",
+    "yt-dlp-ejs>=0.8.0",
+    "httpx>=0.28",
 ]
 
 [tool.uv.sources]

@@ -5,7 +5,16 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from chordb_common.config import get_settings
-from chordb_common.models import Difficulty, NotationKind, Quality, Song, User
+from chordb_common.models import (
+    Analysis,
+    AnalysisSource,
+    AnalysisStatus,
+    Difficulty,
+    NotationKind,
+    Quality,
+    Song,
+    User,
+)
 
 
 class SettingsOut(BaseModel):
@@ -237,3 +246,82 @@ class PublishIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     is_published: bool
+
+
+# --- chord detection ---------------------------------------------------------------
+
+class AnalyzeYouTubeIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    youtube_url: str = Field(min_length=1, max_length=500)
+
+
+class AnalysisEventOut(BaseModel):
+    start_sec: float
+    end_sec: float
+    chord: ChordModel | None  # None = no chord
+    confidence: float
+
+
+class AnalysisSummary(BaseModel):
+    id: int
+    source: AnalysisSource
+    source_ref: str  # the YouTube URL or the uploaded file's name
+    title: str | None
+    youtube_id: str | None
+    status: AnalysisStatus
+    error_code: str | None
+    cache_hit: bool
+    key: ChordModel | None
+    bpm: float | None
+    duration_sec: float | None
+    chords_preview: list[ChordModel]  # first distinct chords, like SongSummary
+    created_at: datetime
+    finished_at: datetime | None
+
+    @classmethod
+    def build(cls, a: Analysis) -> "AnalysisSummary":
+        return cls(**cls._fields(a))
+
+    @staticmethod
+    def _fields(a: Analysis) -> dict:
+        preview: list[ChordModel] = []
+        for e in a.events or []:
+            if e["chord"] is None:
+                continue
+            chord = ChordModel(**e["chord"])
+            if chord not in preview:
+                preview.append(chord)
+            if len(preview) == 4:
+                break
+        return {
+            "id": a.id,
+            "source": a.source,
+            "source_ref": a.source_ref,
+            "title": a.title,
+            "youtube_id": a.youtube_id,
+            "status": a.status,
+            "error_code": a.error_code,
+            "cache_hit": a.cache_hit,
+            "key": None if a.key_root is None else ChordModel(root=a.key_root, quality=a.key_quality),
+            "bpm": a.bpm,
+            "duration_sec": a.duration_sec,
+            "chords_preview": preview,
+            "created_at": a.created_at,
+            "finished_at": a.finished_at,
+        }
+
+
+class AnalysisOut(AnalysisSummary):
+    beats: list[float] | None  # set once done
+    events: list[AnalysisEventOut] | None
+
+    @classmethod
+    def build(cls, a: Analysis) -> "AnalysisOut":
+        return cls(**cls._fields(a), beats=a.beats, events=a.events)
+
+
+class AnalysisHistoryOut(BaseModel):
+    remaining_today: int | None  # None = unlimited (premium)
+    daily_limit: int
+    items: list[AnalysisSummary]

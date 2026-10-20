@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily yt-dlp update for the ChordB worker
+
+[Timer]
+# 04:30 server time, when almost nobody analyses songs.
+OnCalendar=*-*-* 04:30:00
+RandomizedDelaySec=15min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -120,7 +120,7 @@ function Editor({ song, notation, onBack }: { song: SongDetail; notation: Notati
     kind: "idle",
   });
 
-  const video = useVideo(song.youtube_id, 0, {
+  const video = useVideo({ kind: "youtube", id: song.youtube_id }, 0, {
     onReady: (p) => p.setPlaybackRate(speed),
   });
   const duration = video.duration ?? song.duration_sec;

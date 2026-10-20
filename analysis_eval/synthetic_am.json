@@ -1,0 +1,51 @@
+{
+  "title": "Synthetic Am-F-C-G",
+  "audio": "synthetic_am.wav",
+  "bpm": 96,
+  "offset_sec": 0.5,
+  "beats_per_bar": 4,
+  "sections": [
+    {
+      "title": "Kirish",
+      "bars": [
+        "Am",
+        "F",
+        "C",
+        "G"
+      ]
+    },
+    {
+      "title": "Kuplet",
+      "bars": [
+        "Am",
+        "F",
+        "C",
+        "G",
+        "Am",
+        "F",
+        "G",
+        "E"
+      ]
+    },
+    {
+      "title": "Naqarot",
+      "bars": [
+        "F",
+        "G",
+        "Am",
+        "Am",
+        "F",
+        "G",
+        "C",
+        "E"
+      ]
+    },
+    {
+      "title": "Yakun",
+      "bars": [
+        "Am",
+        "N"
+      ]
+    }
+  ]
+}

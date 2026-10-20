@@ -1,4 +1,6 @@
+import tempfile
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import field_validator
@@ -23,6 +25,19 @@ class Settings(BaseSettings):
 
     # Comma-separated Telegram user ids allowed to use /api/admin, e.g. "123,456".
     admin_ids: str = ""
+
+    # Chord detection (/api/analyze and the worker).
+    # Uploaded media waits here until the worker has analysed it, then it is deleted.
+    # The API and the worker must see the same directory.
+    media_dir: str = ""  # default: <system temp>/chordb-media
+    analyze_free_per_day: int = 3  # premium users and admins are unlimited; cache hits are free
+    analyze_max_upload_mb: int = 50
+    analyze_concurrency: int = 2
+    analyze_timeout_sec: int = 180
+
+    @property
+    def media_path(self) -> Path:
+        return Path(self.media_dir) if self.media_dir else Path(tempfile.gettempdir()) / "chordb-media"
 
     @property
     def admin_id_set(self) -> frozenset[int]:

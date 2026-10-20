@@ -1,8 +1,16 @@
-// A YouTube player bound to a React component: created on mount, polled for the
+// A media player bound to a React component: created on mount, polled for the
 // playback position, destroyed on unmount. Used by the song player and the editor.
+// The media is a YouTube video (IFrame API) or a local file (<audio>, localAudio.ts).
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { createAudioPlayer } from "./localAudio";
 import { UNEMBEDDABLE, YTState, createPlayer, type YTPlayer } from "./youtube";
+
+export type MediaSource =
+  | { kind: "youtube"; id: string }
+  | { kind: "file"; url: string | null }; // null: the file isn't in this browser (yet)
+
+const sourceKey = (s: MediaSource) => (s.kind === "youtube" ? `yt:${s.id}` : `file:${s.url}`);
 
 const POLL_MS = 100;
 
@@ -15,7 +23,7 @@ export interface VideoHandlers {
   onDispose?: (p: YTPlayer) => void;
 }
 
-export function useVideo(videoId: string, startSec: number, handlers: VideoHandlers = {}) {
+export function useVideo(source: MediaSource, startSec: number, handlers: VideoHandlers = {}) {
   const hostRef = useRef<HTMLDivElement>(null);
   const player = useRef<YTPlayer | null>(null);
   const h = useRef(handlers);
@@ -28,8 +36,17 @@ export function useVideo(videoId: string, startSec: number, handlers: VideoHandl
   const [error, setError] = useState<"blocked" | "failed" | null>(null);
 
   useEffect(() => {
+    if (source.kind === "file" && !source.url) return;
     let disposed = false;
-    createPlayer(hostRef.current!, videoId, startSec, {
+    setReady(false);
+    setError(null);
+    const create =
+      source.kind === "youtube"
+        ? (events: Parameters<typeof createPlayer>[3]) =>
+            createPlayer(hostRef.current!, source.id, startSec, events)
+        : (events: Parameters<typeof createPlayer>[3]) =>
+            createAudioPlayer(hostRef.current!, source.url!, startSec, events);
+    create({
       onReady: (e) => {
         if (disposed) return e.target.destroy();
         player.current = e.target;
@@ -65,7 +82,7 @@ export function useVideo(videoId: string, startSec: number, handlers: VideoHandl
     };
     // startSec only matters when the player is created.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [videoId]);
+  }, [sourceKey(source)]);
 
   const seek = useCallback((sec: number) => {
     const p = player.current;

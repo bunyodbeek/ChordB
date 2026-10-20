@@ -17,6 +17,7 @@ from sqlalchemy import (
     func,
     text,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -193,6 +194,66 @@ class UserSongProgress(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+
+class AnalysisSource(StrEnum):
+    UPLOAD = "upload"
+    YOUTUBE = "youtube"
+
+
+class AnalysisStatus(StrEnum):
+    QUEUED = "queued"
+    RUNNING = "running"
+    DONE = "done"
+    FAILED = "failed"
+
+
+class Analysis(Base):
+    """One chord-detection request. Media is never stored: only the result.
+
+    A cache hit is a copy of an earlier result (cache_hit = true), so every user's
+    history holds only their own rows.
+    """
+
+    __tablename__ = "analyses"
+    __table_args__ = (
+        Index("ix_analyses_user_created", "user_id", "created_at"),
+        Index("ix_analyses_youtube_id", "youtube_id"),
+        Index("ix_analyses_file_hash", "file_hash"),
+        # The worker's queue scan.
+        Index("ix_analyses_queued", "id", postgresql_where=text("status = 'queued'")),
+        CheckConstraint("key_root BETWEEN 0 AND 11", name="ck_analyses_key_root"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    source: Mapped[AnalysisSource] = mapped_column(_str_enum(AnalysisSource, "analysis_source"))
+    source_ref: Mapped[str] = mapped_column(Text)  # the YouTube URL or the uploaded file's name
+    title: Mapped[str | None] = mapped_column(String(255))  # for the history list
+    youtube_id: Mapped[str | None] = mapped_column(String(32))
+    file_hash: Mapped[str | None] = mapped_column(String(64))  # sha256 of the uploaded bytes
+    # Uploaded file waiting for the worker; cleared once it is deleted.
+    media_path: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[AnalysisStatus] = mapped_column(
+        _str_enum(AnalysisStatus, "analysis_status"), server_default=text("'queued'")
+    )
+    error_code: Mapped[str | None] = mapped_column(String(32))
+    cache_hit: Mapped[bool] = mapped_column(server_default=text("false"))
+
+    key_root: Mapped[int | None] = mapped_column(SmallInteger)
+    key_quality: Mapped[Quality | None] = mapped_column(_str_enum(Quality, "chord_quality"))
+    bpm: Mapped[float | None] = mapped_column(Float)
+    duration_sec: Mapped[float | None] = mapped_column(Float)
+    beats: Mapped[list | None] = mapped_column(JSONB)  # [sec, …]
+    # [{start_sec, end_sec, chord: {root, quality} | null, confidence}]
+    events: Mapped[list | None] = mapped_column(JSONB)
+    engine_version: Mapped[str | None] = mapped_column(String(16))
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Notification(Base):

@@ -19,3 +19,8 @@ webapp/dist/
 .DS_Store
 .idea/
 .vscode/
+
+# chord-detection ground truth: JSON is committed, audio is not
+analysis_eval/*
+!analysis_eval/*.json
+!analysis_eval/README.md

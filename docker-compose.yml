@@ -26,8 +26,11 @@ services:
     environment:
       # Inside the compose network the database host is "postgres".
       DATABASE_URL: postgresql+asyncpg://chordb:chordb@postgres:5432/chordb
+      MEDIA_DIR: /media
     ports:
       - "127.0.0.1:8001:8001"
+    volumes:
+      - media:/media  # uploads wait here for the worker; shared with it
     depends_on:
       postgres:
         condition: service_healthy
@@ -52,5 +55,24 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # Chord detection: exactly one worker; it runs ANALYZE_CONCURRENCY jobs itself.
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://chordb:chordb@postgres:5432/chordb
+      MEDIA_DIR: /media
+    volumes:
+      - media:/media
+    command: ["python", "-m", "app.worker"]
+    depends_on:
+      # The backend runs the migrations.
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   pgdata:
+  media:

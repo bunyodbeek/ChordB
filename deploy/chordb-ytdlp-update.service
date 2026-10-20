@@ -1,0 +1,11 @@
+# sudo cp deploy/chordb-ytdlp-update.{service,timer} /etc/systemd/system/
+# sudo systemctl daemon-reload && sudo systemctl enable --now chordb-ytdlp-update.timer
+[Unit]
+Description=Update yt-dlp in the ChordB worker container
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+Environment=CHORDB_DIR=/opt/chordb
+ExecStart=/bin/sh /opt/chordb/deploy/ytdlp-update.sh
