@@ -282,3 +282,79 @@ def test_load_audio_with_ffmpeg(tmp_path):
     with pytest.raises(AnalysisError) as e:
         load_audio(bad)
     assert e.value.code == "decode_failed"
+
+
+# --- tuning ------------------------------------------------------------------------------
+
+
+from app.analysis.evaluate import best_shift_accuracy  # noqa: E402
+from app.analysis.tuning import advise, ease, transpose_state  # noqa: E402
+
+
+def progression(*symbols: str, each: float = 2.0) -> list[Segment]:
+    from app.analysis.evaluate import reduce_symbol
+
+    return [seg(i * each, (i + 1) * each, reduce_symbol(s)) for i, s in enumerate(symbols)]
+
+
+def test_transpose_state():
+    assert transpose_state(chord_state(5, MIN), 1) == chord_state(6, MIN)  # Fm -> F#m
+    assert transpose_state(chord_state(11, MAJ), 1) == chord_state(0, MAJ)  # B -> C
+    assert transpose_state(chord_state(0, MAJ), -1) == chord_state(11, MAJ)
+    assert transpose_state(N_STATE, 3) == N_STATE
+
+
+def test_half_step_down_cover_is_recognised():
+    # Detected (sounding): Fm Bbm Eb Ab. Played as F#m Bm E A on a guitar tuned down.
+    segs = progression("Fm", "Bbm", "Eb", "Ab")
+    advice = advise(segs)
+    assert advice.alt_tuning == {"name": "Eb standard", "shift": -1}
+    assert advice.suggested_capo == 1  # or in standard tuning: capo 1, Em Am D G
+    assert ease(segs, 0) < 0.3 < 0.8 <= ease(segs, 1)
+
+
+def test_whole_step_down():
+    segs = progression("Gm", "Eb", "Bb", "F", "Gm", "Eb", "Bb", "F")  # Am F C G, 2 down
+    assert advise(segs).alt_tuning == {"name": "D standard", "shift": -2}
+
+
+def test_open_chord_songs_stay_in_standard():
+    for chords in (("Am", "F", "C", "G"), ("G", "D", "Em", "C")):
+        advice = advise(progression(*chords))
+        assert advice.alt_tuning is None, chords
+        assert advice.suggested_capo == 0, chords
+    # Two barre chords (B, C#m): no down-tuning, but capo 2 gives D G A Bm shapes.
+    advice = advise(progression("E", "A", "B", "C#m"))
+    assert advice.alt_tuning is None and advice.suggested_capo == 2
+
+
+def test_no_chords_no_advice():
+    advice = advise([seg(0, 5, N_STATE)])
+    assert advice.alt_tuning is None and advice.suggested_capo == 0
+
+
+def test_best_shift_accuracy():
+    truth = ground_truth_beats({"bpm": 60, "offset_sec": 0, "sections": [{"bars": ["F#m", "Bm"]}]})
+    detected = progression("Fm", "Bbm", each=4.0)  # one semitone low
+    assert accuracy(detected, truth) == 0.0
+    assert best_shift_accuracy(detected, truth) == (1.0, 1)
+    assert best_shift_accuracy(progression("F#m", "Bm", each=4.0), truth) == (1.0, 0)
+
+
+@pytest.mark.parametrize("cents", [-30, 35])
+def test_sub_semitone_detuning_is_corrected(cents):
+    result = decode_features(extract_features(render(DEMO, detune_cents=cents)))
+    assert result.tuning_cents == pytest.approx(cents, abs=8)
+    assert accuracy(result.segments, ground_truth_beats(DEMO)) >= 0.9
+    assert result.advice.alt_tuning is None
+
+
+def test_half_step_down_recording():
+    result = decode_features(extract_features(render(DEMO, detune_cents=-100)))
+    truth = ground_truth_beats(DEMO)
+    assert accuracy(result.segments, truth) < 0.2  # sounding pitch is a semitone low…
+    assert best_shift_accuracy(result.segments, truth)[0] >= 0.9  # …but every chord is right
+    data = result.to_json()
+    assert data["alt_tuning"] == {"name": "Eb standard", "shift": -1}
+    assert abs(data["tuning_offset_cents"]) < 15
+    assert isinstance(data["suggested_capo"], int)

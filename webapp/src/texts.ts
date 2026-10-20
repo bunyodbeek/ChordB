@@ -14,6 +14,13 @@ export const t = {
 
   tuneTitle: "Sozlash",
   standard: "Standart",
+  presetsLabel: "Sozlash turi",
+  presets: {
+    standard: "Standart",
+    half_down: "Yarim ton past",
+    whole_down: "Bir ton past",
+    drop_d: "Drop D",
+  },
   low: "past",
   high: "baland",
   tapToStart: "🎤 Boshlash uchun bosing",
@@ -76,6 +83,13 @@ export const t = {
     videoFailed: "Videoni yuklab boʻlmadi. Internetni tekshirib, qayta urinib koʻring.",
     openOnYouTube: "YouTube’da ochish",
     edit: "Tahrirlash",
+    tuningLabel: "Gitara sozlanishi",
+    standardTuning: "Standart sozlash",
+    altTuning: (shift: number) => (shift === -2 ? "Bir ton past" : "Yarim ton past"),
+    altHint: (notes: string) => `Gitarani shunday sozlang: ${notes}`,
+    openTuner: "Tyunerni ochish",
+    capoHint: (n: number, chords: string) => `Kapo ${n} bilan osonroq: ${chords}`,
+    setCapo: (n: number) => `Kapo ${n}`,
   },
 
   analyze: {

@@ -4,7 +4,7 @@ This module stays import-light (no librosa) so the API can read ENGINE_VERSION.
 """
 
 # Bump whenever results would change: cached analyses are keyed on it.
-ENGINE_VERSION = "1.0"
+ENGINE_VERSION = "1.1"  # 1.1: explicit tuning, alt_tuning, suggested_capo
 
 
 class AnalysisError(Exception):

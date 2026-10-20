@@ -247,6 +247,12 @@ class Analysis(Base):
     beats: Mapped[list | None] = mapped_column(JSONB)  # [sec, …]
     # [{start_sec, end_sec, chord: {root, quality} | null, confidence}]
     events: Mapped[list | None] = mapped_column(JSONB)
+    # Sub-semitone deviation from A440 that the engine corrected for.
+    tuning_offset_cents: Mapped[float | None] = mapped_column(Float)
+    # {"name": "Eb standard", "shift": -1} when the song was most likely played in a
+    # down-tuning; shapes there are each chord moved up by -shift semitones.
+    alt_tuning: Mapped[dict | None] = mapped_column(JSONB)
+    suggested_capo: Mapped[int | None] = mapped_column(SmallInteger)  # standard tuning
     engine_version: Mapped[str | None] = mapped_column(String(16))
 
     created_at: Mapped[datetime] = mapped_column(

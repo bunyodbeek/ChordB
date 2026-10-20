@@ -9,6 +9,7 @@ import { TabBar, type Tab } from "./components/TabBar";
 import { Tuner } from "./components/Tuner";
 import { getInitData } from "./telegram";
 import { t } from "./texts";
+import { loadPreset, savePreset, type PresetId } from "./tuning";
 
 type Load =
   | { state: "loading" }
@@ -19,6 +20,21 @@ export default function App() {
   const [load, setLoad] = useState<Load>({ state: "loading" });
   const [tab, setTab] = useState<Tab>("tuner");
   const [fullscreen, setFullscreen] = useState(false); // e.g. the song player hides the tab bar
+  const [preset, setPreset] = useState<PresetId>(loadPreset); // remembered on this device
+
+  const changePreset = useCallback((id: PresetId) => {
+    setPreset(id);
+    savePreset(id);
+  }, []);
+  // "Tyunerni ochish" in the song player: the tuner, already in that song's tuning.
+  const openTuner = useCallback(
+    (id: PresetId) => {
+      changePreset(id);
+      setTab("tuner");
+      window.scrollTo(0, 0);
+    },
+    [changePreset],
+  );
 
   const fetchMe = useCallback(() => {
     if (!getInitData()) {
@@ -84,6 +100,8 @@ export default function App() {
             onNotationChange={(notation) => updateSettings({ notation })}
             needsWriteAccess={me.needs_write_access}
             onWriteAccessAsked={markWriteAccessAsked}
+            preset={preset}
+            onPresetChange={changePreset}
           />
         )}
         {tab === "chords" && (
@@ -97,6 +115,7 @@ export default function App() {
             notation={me.settings.notation}
             isAdmin={me.is_admin}
             onFullscreen={setFullscreen}
+            onOpenTuner={openTuner}
           />
         )}
         {tab === "profile" && <Profile me={me} onChange={updateSettings} />}

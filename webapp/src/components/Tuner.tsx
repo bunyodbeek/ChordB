@@ -1,11 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 
 import { api } from "../api";
-import { noteName, type NotationKind } from "../notation";
+import type { NotationKind } from "../notation";
 import { centsOff } from "../pitch";
 import { canRequestWriteAccess, haptic, requestWriteAccess } from "../telegram";
 import { t } from "../texts";
-import { IN_TUNE_CENTS, STANDARD, nearestString, type GuitarString } from "../tuning";
+import {
+  IN_TUNE_CENTS,
+  PRESETS,
+  nearestString,
+  presetById,
+  stringName,
+  type GuitarString,
+  type PresetId,
+} from "../tuning";
 import { useTuner } from "../useTuner";
 import { Headstock } from "./Headstock";
 import { Meter } from "./Meter";
@@ -24,17 +32,36 @@ interface Props {
   onNotationChange: (n: NotationKind) => void;
   needsWriteAccess: boolean;
   onWriteAccessAsked: () => void;
+  preset: PresetId; // remembered by App (tuning.ts savePreset)
+  onPresetChange: (id: PresetId) => void;
 }
 
-export function Tuner({ notation, onNotationChange, needsWriteAccess, onWriteAccessAsked }: Props) {
+export function Tuner({
+  notation,
+  onNotationChange,
+  needsWriteAccess,
+  onWriteAccessAsked,
+  preset,
+  onPresetChange,
+}: Props) {
   const { status, freq, start } = useTuner();
   const [selected, setSelected] = useState<number | null>(null); // string number, null = auto
   const [tuned, setTuned] = useState<ReadonlySet<number>>(new Set());
   const inTuneSince = useRef<{ string: number; at: number } | null>(null);
   const lastReading = useRef<Reading | null>(null);
+  const tuning = presetById(preset);
+  const strings = tuning.strings;
 
-  const locked = selected !== null ? STANDARD.find((s) => s.number === selected)! : null;
-  const target = locked ?? (freq !== null ? nearestString(freq) : null);
+  // Another tuning: every string has a new target, so start over.
+  useEffect(() => {
+    setTuned(new Set());
+    setSelected(null);
+    lastReading.current = null;
+    inTuneSince.current = null;
+  }, [preset]);
+
+  const locked = selected !== null ? strings.find((s) => s.number === selected)! : null;
+  const target = locked ?? (freq !== null ? nearestString(freq, strings) : null);
   const live: Reading | null =
     freq !== null && target ? { target, freq, cents: centsOff(freq, target.freq) } : null;
   if (live) lastReading.current = live;
@@ -100,7 +127,7 @@ export function Tuner({ notation, onNotationChange, needsWriteAccess, onWriteAcc
       break;
     case "listening":
       if (!live) {
-        pill = { text: tuned.size === STANDARD.length ? t.allTuned : t.listening, tone: "muted" };
+        pill = { text: tuned.size === strings.length ? t.allTuned : t.listening, tone: "muted" };
       } else if (inTune) {
         pill = { text: t.inTune, tone: "good" };
       } else {
@@ -117,15 +144,32 @@ export function Tuner({ notation, onNotationChange, needsWriteAccess, onWriteAcc
         <div>
           <h1>{t.tuneTitle}</h1>
           <div className="subtitle">
-            {t.standard} · {STANDARD.map((s) => noteName(s.pc, notation)).join(" ")}
+            {strings.map((s) => stringName(s.pc, notation, tuning.flat)).join(" ")}
           </div>
         </div>
         <NotationToggle value={notation} onChange={onNotationChange} />
       </header>
 
+      <div className="chips tuning-presets" role="group" aria-label={t.presetsLabel}>
+        {PRESETS.map((p) => (
+          <button
+            key={p.id}
+            type="button"
+            className={`chip${p.id === preset ? " selected" : ""}`}
+            aria-pressed={p.id === preset}
+            onClick={() => {
+              haptic.tap();
+              onPresetChange(p.id);
+            }}
+          >
+            {t.presets[p.id]}
+          </button>
+        ))}
+      </div>
+
       <div className="readout">
         <div className={`note${inTune ? " in-tune" : ""}${shown && !live ? " stale" : ""}`}>
-          {shownTarget ? noteName(shownTarget.pc, notation) : "—"}
+          {shownTarget ? stringName(shownTarget.pc, notation, tuning.flat) : "—"}
           {shownTarget && <sub>{shownTarget.octave}</sub>}
         </div>
         <div className={`numbers${live ? "" : " stale"}`}>
@@ -163,6 +207,8 @@ export function Tuner({ notation, onNotationChange, needsWriteAccess, onWriteAcc
 
       <Headstock
         notation={notation}
+        strings={strings}
+        flat={tuning.flat}
         active={live?.target.number ?? locked?.number ?? null}
         tuned={tuned}
         onSelect={(n) => {

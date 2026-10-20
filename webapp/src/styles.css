@@ -2132,3 +2132,60 @@ h1 {
   font-size: 14px;
   cursor: pointer;
 }
+
+/* --- tunings: analysis player switch, tuner presets --- */
+
+.tuning-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tuning-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 100%;
+}
+
+.tuning-switch button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  padding: 0.5rem 0.5rem;
+}
+
+.tuning-chords {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.tuning-hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px 8px 12px;
+  border-radius: 12px;
+  background: var(--blue-soft);
+  color: var(--blue-text);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.tuning-hint .control.small {
+  flex: none;
+}
+
+/* Four presets: wrap instead of scrolling, so Drop D isn't hidden off-screen. */
+.tuning-presets {
+  flex-wrap: wrap;
+  overflow: visible;
+  margin: 0.75rem 0 0;
+  padding: 0;
+}

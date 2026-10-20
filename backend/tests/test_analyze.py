@@ -37,6 +37,9 @@ RESULT = {
         {"start_sec": 8, "end_sec": 10, "chord": AM, "confidence": 0.9},
         {"start_sec": 10, "end_sec": 12, "chord": None, "confidence": 0.7},
     ],
+    "tuning_offset_cents": -12.5,
+    "alt_tuning": {"name": "Eb standard", "shift": -1},
+    "suggested_capo": 1,
 }
 
 
@@ -116,6 +119,8 @@ async def test_upload_queue_run_and_fetch(client, sessionmaker, media_dir, caplo
     assert done["events"] == RESULT["events"]
     assert done["beats"] == RESULT["beats"]
     assert done["chords_preview"] == [AM, F]
+    assert done["tuning_offset_cents"] == -12.5 and done["suggested_capo"] == 1
+    assert done["alt_tuning"] == {"name": "Eb standard", "shift": -1}
     async with sessionmaker() as s:
         row = await s.get(Analysis, job["id"])
         assert row.media_path is None and row.engine_version == ENGINE_VERSION
@@ -183,6 +188,7 @@ async def test_cache_hit_is_instant_and_free(client, sessionmaker, media_dir):
     assert hit["id"] != first["id"]
     assert hit["status"] == "done" and hit["cache_hit"] is True
     assert hit["events"] == RESULT["events"] and hit["source_ref"] == "boshqa.m4a"
+    assert hit["alt_tuning"] == RESULT["alt_tuning"] and hit["suggested_capo"] == 1
     assert list(media_dir.iterdir()) == []
     assert not await worker(sessionmaker, media_dir).run_once()  # no new job
 

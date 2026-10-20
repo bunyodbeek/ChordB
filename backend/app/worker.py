@@ -193,6 +193,9 @@ class Worker:
                 duration_sec=result["duration_sec"],
                 beats=result["beats"],
                 events=result["events"],
+                tuning_offset_cents=result.get("tuning_offset_cents"),
+                alt_tuning=result.get("alt_tuning"),
+                suggested_capo=result.get("suggested_capo"),
                 engine_version=result["engine_version"],
                 **extra,
             )

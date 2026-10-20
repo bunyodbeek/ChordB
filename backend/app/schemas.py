@@ -263,6 +263,11 @@ class AnalysisEventOut(BaseModel):
     confidence: float
 
 
+class AltTuningOut(BaseModel):
+    name: str  # "Eb standard" | "D standard"
+    shift: int  # semitones below standard; shapes = chords moved up by -shift
+
+
 class AnalysisSummary(BaseModel):
     id: int
     source: AnalysisSource
@@ -276,6 +281,9 @@ class AnalysisSummary(BaseModel):
     bpm: float | None
     duration_sec: float | None
     chords_preview: list[ChordModel]  # first distinct chords, like SongSummary
+    tuning_offset_cents: float | None
+    alt_tuning: AltTuningOut | None
+    suggested_capo: int | None  # for standard tuning; 0 = none
     created_at: datetime
     finished_at: datetime | None
 
@@ -307,6 +315,9 @@ class AnalysisSummary(BaseModel):
             "bpm": a.bpm,
             "duration_sec": a.duration_sec,
             "chords_preview": preview,
+            "tuning_offset_cents": a.tuning_offset_cents,
+            "alt_tuning": a.alt_tuning,
+            "suggested_capo": a.suggested_capo,
             "created_at": a.created_at,
             "finished_at": a.finished_at,
         }

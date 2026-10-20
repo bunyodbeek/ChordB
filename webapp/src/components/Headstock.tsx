@@ -1,5 +1,5 @@
-import { noteName, type NotationKind } from "../notation";
-import { STANDARD } from "../tuning";
+import type { NotationKind } from "../notation";
+import { STANDARD, stringName, type GuitarString } from "../tuning";
 
 // Drawing coordinates; the HTML buttons are placed in % of the same box.
 const W = 320;
@@ -24,9 +24,18 @@ interface Props {
   active: number | null; // string being tuned (detected or locked)
   tuned: ReadonlySet<number>;
   onSelect: (number: number) => void;
+  strings?: GuitarString[]; // the tuning preset; standard by default
+  flat?: boolean; // spell accidentals with flats
 }
 
-export function Headstock({ notation, active, tuned, onSelect }: Props) {
+export function Headstock({
+  notation,
+  active,
+  tuned,
+  onSelect,
+  strings = STANDARD,
+  flat = false,
+}: Props) {
   return (
     <div className="headstock" style={{ aspectRatio: `${W} / ${H}` }}>
       <svg viewBox={`0 0 ${W} ${H}`} aria-hidden="true">
@@ -78,7 +87,7 @@ export function Headstock({ notation, active, tuned, onSelect }: Props) {
       </svg>
 
       {PEGS.map(({ number, side, y }) => {
-        const s = STANDARD.find((x) => x.number === number)!;
+        const s = strings.find((x) => x.number === number)!;
         const isTuned = tuned.has(number);
         return (
           <button
@@ -99,7 +108,7 @@ export function Headstock({ notation, active, tuned, onSelect }: Props) {
             onClick={() => onSelect(number)}
             aria-label={`${number}-tor`}
           >
-            <span className="string-btn-name">{noteName(s.pc, notation)}</span>
+            <span className="string-btn-name">{stringName(s.pc, notation, flat)}</span>
             <span className="string-btn-sub">{isTuned ? "✓" : s.octave}</span>
           </button>
         );

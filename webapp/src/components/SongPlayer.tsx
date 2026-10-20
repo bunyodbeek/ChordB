@@ -18,6 +18,7 @@ import {
   type TimedEvent,
   type TimedSection,
 } from "../timeline";
+import { presetById, presetForShift, stringName, type PresetId } from "../tuning";
 import { useVideo, type MediaSource } from "../useVideo";
 import { YTState, type YTPlayer } from "../youtube";
 import { MiniChordDiagram, type MiniColors } from "./ChordDiagram";
@@ -51,6 +52,11 @@ export interface PlayerModel {
   onSave?: (positionSec: number) => void;
   onPickFile?: (file: File) => void; // a file analysis whose file isn't in this browser
   fileName?: string;
+  // Analyses: the song was most likely played in a down-tuning (shift -1 = Eb standard);
+  // its shapes are the chords moved up by -shift.
+  altTuning?: { name: string; shift: number } | null;
+  suggestedCapo?: number; // easier shapes in standard tuning
+  onOpenTuner?: (preset: PresetId) => void;
 }
 
 interface Props {
@@ -166,6 +172,8 @@ export function Player({
   const [shift, setShift] = useState(0);
   const [capo, setCapo] = useState(model.capo);
   const [speed, setSpeed] = useState(1);
+  // Shown as played in the detected down-tuning by default: covers are tabbed that way.
+  const [useAlt, setUseAlt] = useState(Boolean(model.altTuning));
   const [loop, setLoop] = useState<{ start: number; end: number } | null>(null);
   const loopRef = useRef(loop);
   loopRef.current = loop;
@@ -218,8 +226,21 @@ export function Player({
   const groups = useMemo(() => groupBySection(sections, events), [sections, events]);
 
   // Shapes are shown relative to the capo: Am with capo 2 is played as a Gm shape.
-  const shown = (c: ChordJson): Chord => transpose(spelled(c), shift - capo);
+  // In a down-tuning they move up: Fm on a guitar tuned a half step down is an F#m shape.
+  const altShift = useAlt && model.altTuning ? model.altTuning.shift : 0;
+  const shown = (c: ChordJson): Chord => transpose(spelled(c), shift - capo - altShift);
   const name = (c: ChordJson | null) => (c ? formatChord(shown(c), notation) : "—");
+  /** First distinct chords as they would be shown with `semitones` of extra shift. */
+  const preview = (semitones: number) => {
+    const out: string[] = [];
+    for (const e of events) {
+      if (!e.chord) continue;
+      const label = formatChord(transpose(spelled(e.chord), shift + semitones), notation);
+      if (!out.includes(label)) out.push(label);
+      if (out.length === 4) break;
+    }
+    return out.join(" ");
+  };
   const nowChord = index >= 0 ? events[index].chord : null;
   const nextChord = index + 1 < events.length ? events[index + 1].chord : null;
   const sol = notation === "solfege";
@@ -292,6 +313,24 @@ export function Player({
         </div>
       </div>
       {model.note && <p className="player-note">{model.note}</p>}
+
+      {(model.altTuning || (model.suggestedCapo ?? 0) > 0) && (
+        <TuningCard
+          model={model}
+          useAlt={useAlt}
+          capo={capo}
+          notation={notation}
+          preview={preview}
+          onUseAlt={(on) => {
+            haptic.tap();
+            setUseAlt(on);
+          }}
+          onCapo={(n) => {
+            haptic.tap();
+            setCapo(n);
+          }}
+        />
+      )}
 
       <div className={`video${isFile ? " audio" : ""}`}>
         <div ref={video.hostRef} className="video-host" />
@@ -463,6 +502,89 @@ export function Player({
           </svg>
         </button>
       </div>
+    </div>
+  );
+}
+
+/** "Standart sozlash" | "Yarim ton past" for analyses, with the capo or tuner hint. */
+function TuningCard({
+  model,
+  useAlt,
+  capo,
+  notation,
+  preview,
+  onUseAlt,
+  onCapo,
+}: {
+  model: PlayerModel;
+  useAlt: boolean;
+  capo: number;
+  notation: NotationKind;
+  preview: (semitones: number) => string;
+  onUseAlt: (on: boolean) => void;
+  onCapo: (n: number) => void;
+}) {
+  const alt = model.altTuning;
+  const suggested = model.suggestedCapo ?? 0;
+  const preset = alt ? presetForShift(alt.shift) : null;
+  const sol = notation === "solfege";
+  const chordsStyle = { fontFamily: sol ? "var(--font)" : "var(--mono)" };
+  const presetNotes = (id: PresetId) => {
+    const p = presetById(id);
+    return p.strings.map((s) => stringName(s.pc, notation, p.flat)).join(" ");
+  };
+  return (
+    <div className="tuning-card">
+      {alt && (
+        <div className="segmented tuning-switch" role="group" aria-label={t.player.tuningLabel}>
+          <button
+            type="button"
+            className={useAlt ? "" : "selected"}
+            aria-pressed={!useAlt}
+            onClick={() => onUseAlt(false)}
+          >
+            <span>{t.player.standardTuning}</span>
+            <span className="tuning-chords" style={chordsStyle}>
+              {preview(0)}
+            </span>
+          </button>
+          <button
+            type="button"
+            className={useAlt ? "selected" : ""}
+            aria-pressed={useAlt}
+            onClick={() => onUseAlt(true)}
+          >
+            <span>{t.player.altTuning(alt.shift)}</span>
+            <span className="tuning-chords" style={chordsStyle}>
+              {preview(-alt.shift)}
+            </span>
+          </button>
+        </div>
+      )}
+      {useAlt && preset ? (
+        <div className="tuning-hint">
+          <span>{t.player.altHint(presetNotes(preset))}</span>
+          {model.onOpenTuner && (
+            <button
+              type="button"
+              className="control small"
+              onClick={() => model.onOpenTuner!(preset)}
+            >
+              {t.player.openTuner}
+            </button>
+          )}
+        </div>
+      ) : (
+        suggested > 0 &&
+        capo !== suggested && (
+          <div className="tuning-hint">
+            <span>{t.player.capoHint(suggested, preview(-suggested))}</span>
+            <button type="button" className="control small" onClick={() => onCapo(suggested)}>
+              {t.player.setCapo(suggested)}
+            </button>
+          </div>
+        )
+      )}
     </div>
   );
 }

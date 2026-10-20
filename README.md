@@ -86,7 +86,13 @@ The browser allows the microphone on `localhost`, so the tuner works there too.
 The app:
 
 - On first open, asks for letter (E A D) or solfège (Mi Lya Re) note names and saves the choice to `settings.notation`.
-- Tunes in standard tuning (E2 A2 D3 G3 B3 E4). It picks the nearest string automatically, or you can lock one string. A string counts as tuned once it stays within ±5 cents for 0.6 s.
+- Tunes in one of four presets:
+  - Standart (E A D G B E)
+  - Yarim ton past (Eb Ab Db Gb Bb Eb)
+  - Bir ton past (D G C F A D)
+  - Drop D (D A D G B E)
+
+  The choice is remembered on the device (`localStorage`, `tuning.ts`). It picks the nearest string automatically, or you can lock one string. A string counts as tuned once it stays within ±5 cents for 0.6 s.
 - Reports `tuner_opened` when the microphone starts. After the first string is tuned it asks for write access, once (`needs_write_access`), and reports `write_access_requested` / `write_access_granted`.
 - Follows Telegram's light or dark theme.
 
@@ -128,6 +134,10 @@ Videos whose owner disabled embedding (YouTube errors 101/150/153) show a messag
 - **Chunks and beats:** analyses have no sections, so the grid and the section loop use chunks of 8 chord changes ("1-qism", "2-qism", …). The beat bar follows the detected beats.
 - **No chord:** shown as "—".
 - **Controls:** Ton, Kapo, Tezlik (the pitch is kept at 0.75× and 0.5×), loop and ABC / Do Re Mi work as for songs. Progress isn't saved for analyses.
+- **Tuning switch:** when the engine reports `alt_tuning`, a switch offers two ways to show the chords:
+  - **"Standart sozlash"** shows the chords as they sound, e.g. Fm Bbm Eb Ab.
+  - **"Yarim ton past"** / **"Bir ton past"** shows the shapes in that tuning, e.g. F#m Bm E A. It's the default, since covers are tabbed that way. Its "Tyunerni ochish" opens the tuner already in that preset, and the Qoʻshiqlar tab brings you back to the same song.
+- **Capo hint:** with `suggested_capo`, standard tuning also shows "Kapo 1 bilan osonroq: Em Am D G" and a button that sets the capo.
 
 **Admin** (`me.is_admin`). An "Admin" button above the song list leads to the admin screens:
 
@@ -342,10 +352,19 @@ The pitch classes map as C=Do, D=Re, E=Mi, F=Fa, G=Sol, A=Lya, B=Si.
 | `audio.py` | ffprobe rejects files over 10 min. ffmpeg then decodes to mono 22.05 kHz. Every failure raises `AnalysisError(code)`. |
 | `engine.py` | HPSS, beat tracking on the percussive part, and beat-synchronous `chroma_cqt` on the harmonic part. Very quiet frames are ignored. Stretches with no tracked beats are padded at the median beat period. |
 | `decode.py` | Cosine similarity to binary triad templates. A Krumhansl-Kessler key estimate and a key prior: diatonic chords ×1.5, others ×0.9. In minor keys the major V (E in Am) counts as diatonic. Viterbi smoothing (self-transition 0.85), then merging equal neighbours and dropping segments shorter than one beat. |
+| `tuning.py` | Which tuning and capo the song was most likely played in (see below) |
 | `evaluate.py` | Beat-level accuracy against `analysis_eval/*.json`, with and without the key prior |
 | `synth.py` | Synthetic songs with exact ground truth, for the tests |
 
-The result has `key`, `bpm`, `beats`, `duration_sec`, `engine_version`, and `events: [{start_sec, end_sec, chord: {root, quality} | null, confidence}]`. `null` means no chord. Bump `ENGINE_VERSION` in `engine.py` whenever the output would change.
+The result has `key`, `bpm`, `beats`, `duration_sec`, `engine_version`, and `events: [{start_sec, end_sec, chord: {root, quality} | null, confidence}]`. `null` means no chord. It also has `tuning_offset_cents`, `alt_tuning` and `suggested_capo`, described under "Tuning" below. Bump `ENGINE_VERSION` (in `app/analysis/__init__.py`, now 1.1) whenever the output would change; older cached results are then recomputed.
+
+**Tuning.** Covers often sound exactly one semitone off from the chord sheet: a guitar tuned a half step down sounds Fm Bbm Eb Ab when the player fingers F#m Bm E A. The two are physically the same sound, so this can't be measured. It is decided instead:
+
+1. **Sub-semitone drift** (±50 cents, e.g. a guitar 30 cents flat or a slightly sped-up upload): `librosa.estimate_tuning` runs on the harmonic part, and the result is passed to `chroma_cqt(tuning=…)`. The result reports it as `tuning_offset_cents`.
+2. **Whole semitones** (`tuning.py`): every chord gets a shape-ease score (open chords 1.0, common barres 0.4–0.6, awkward ones 0.2), weighted by duration.
+   - If the shapes a half or a whole step down are clearly easier (+0.25, and at least 0.6 overall), the result has `alt_tuning = {"name": "Eb standard", "shift": -1}`, or `D standard` / `-2`.
+   - Events stay at sounding pitch; the shapes in that tuning are each chord moved up by `-shift`.
+   - `suggested_capo` is the lowest capo that makes standard-tuning shapes clearly easier (+0.15), for example Fm Bbm Eb Ab with capo 1 gives Em Am D G.
 
 ```bash
 cd backend
@@ -356,6 +375,22 @@ uv run python -m app.analysis.cli song.mp3 --json
 uv run python -m app.analysis.synth ../analysis_eval                  # once: synthetic_am.wav
 uv run python -m app.analysis.evaluate                                # every song in analysis_eval/
 uv run python -m app.analysis.evaluate --self-transition 0.9 --key-boost 2
+```
+
+The evaluation prints, per song:
+
+- `tune`: the corrected tuning offset in cents.
+- `alt`: the down-tuning detected (Eb or D).
+- `exact`: accuracy at sounding pitch.
+- `best±2`: transposition-invariant accuracy, the best over whole-song shifts of −2..+2, with that shift.
+- `no prior`: exact accuracy without the key prior.
+
+A low `exact` with a high `best±2` means the chords are right and only the tuning is shifted:
+
+```
+song                              key  tune  alt  exact      best±2  no prior
+Synthetic eb_standard               B   +1c   Eb   4.5% 100.0% (+1)      4.5%
+Synthetic flat_30c                  C  -28c    - 100.0% 100.0% (+0)    100.0%
 ```
 
 See `analysis_eval/README.md` for the ground-truth format. The audio files there are gitignored.

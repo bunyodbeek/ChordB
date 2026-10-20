@@ -37,7 +37,7 @@ def _freq(midi: float) -> float:
     return 440.0 * 2 ** ((midi - 69) / 12)
 
 
-def _pluck(midi: int, length: int, sr: int) -> np.ndarray:
+def _pluck(midi: float, length: int, sr: int) -> np.ndarray:
     t = np.arange(length) / sr
     tone = sum(np.sin(2 * np.pi * _freq(midi) * h * t) / h**1.5 for h in range(1, 6))
     return tone * np.exp(-3.0 * t)
@@ -57,8 +57,14 @@ def chord_notes(symbol: str) -> list[int]:
     return [36 + chord.root, base, base + third, base + 7, base + 12]
 
 
-def render(spec: dict, sr: int = SAMPLE_RATE, seed: int = 0) -> np.ndarray:
-    """Audio for a ground-truth spec (the analysis_eval format)."""
+def render(
+    spec: dict, sr: int = SAMPLE_RATE, seed: int = 0, detune_cents: float = 0.0
+) -> np.ndarray:
+    """Audio for a ground-truth spec (the analysis_eval format).
+
+    detune_cents shifts every note: -30 = a guitar slightly flat, -100 = tuned a half
+    step down (Eb standard), as in many covers.
+    """
     rng = np.random.default_rng(seed)
     beat = 60.0 / spec["bpm"]
     per_bar = spec.get("beats_per_bar", 4)
@@ -78,7 +84,7 @@ def render(spec: dict, sr: int = SAMPLE_RATE, seed: int = 0) -> np.ndarray:
             for j, note in enumerate(chord_notes(symbol)):
                 s = start + j * int(0.012 * sr)  # 12 ms strum
                 seg = y[s:s + hit]
-                seg += 0.15 * _pluck(note, len(seg), sr)
+                seg += 0.15 * _pluck(note + detune_cents / 100, len(seg), sr)
     y += 0.003 * rng.standard_normal(len(y))
     return (y / np.abs(y).max() * 0.8).astype(np.float32)
 

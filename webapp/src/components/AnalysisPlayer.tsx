@@ -6,6 +6,7 @@ import { analysisTimeline, analysisTitle, localFileUrl, rememberFile } from "../
 import { api, type AnalysisDetail } from "../api";
 import type { NotationKind } from "../notation";
 import { useBackButton } from "../telegram";
+import type { PresetId } from "../tuning";
 import { t } from "../texts";
 import { BrowserBack, Player, PlayerLoading, type PlayerModel } from "./SongPlayer";
 
@@ -13,9 +14,10 @@ interface Props {
   analysisId: number;
   notation: NotationKind;
   onBack: () => void;
+  onOpenTuner: (preset: PresetId) => void;
 }
 
-export function AnalysisPlayer({ analysisId, notation, onBack }: Props) {
+export function AnalysisPlayer({ analysisId, notation, onBack, onOpenTuner }: Props) {
   useBackButton(onBack);
   const [analysis, setAnalysis] = useState<AnalysisDetail | null>(null);
   const [failed, setFailed] = useState(false);
@@ -50,8 +52,11 @@ export function AnalysisPlayer({ analysisId, notation, onBack }: Props) {
       startSec: 0,
       fileName: youtube ? undefined : analysis.source_ref,
       onPickFile: (file) => setFileUrl(rememberFile(analysisId, file)),
+      altTuning: analysis.alt_tuning,
+      suggestedCapo: analysis.suggested_capo ?? 0,
+      onOpenTuner,
     };
-  }, [analysis, analysisId, fileUrl]);
+  }, [analysis, analysisId, fileUrl, onOpenTuner]);
 
   if (!model) {
     return <PlayerLoading failed={failed} onRetry={() => setAttempt((n) => n + 1)} />;

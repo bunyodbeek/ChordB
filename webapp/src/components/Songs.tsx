@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import type { SongSummary } from "../api";
 import type { NotationKind } from "../notation";
+import type { PresetId } from "../tuning";
 import { t } from "../texts";
 import { AdminSongs } from "./admin/AdminSongs";
 import { AnalysisPlayer } from "./AnalysisPlayer";
@@ -22,11 +23,16 @@ interface Props {
   notation: NotationKind;
   isAdmin: boolean;
   onFullscreen: (on: boolean) => void; // everything but the list hides the tab bar
+  onOpenTuner: (preset: PresetId) => void;
 }
 
+// The screen stack outlives the tab: after "Tyunerni ochish" and back, the same song is open.
+let savedStack: View[] = [{ name: "list" }];
+
 /** The Qoʻshiqlar tab: a small stack of screens; back pops one. */
-export function Songs({ notation, isAdmin, onFullscreen }: Props) {
-  const [stack, setStack] = useState<View[]>([{ name: "list" }]);
+export function Songs({ notation, isAdmin, onFullscreen, onOpenTuner }: Props) {
+  const [stack, setStack] = useState<View[]>(savedStack);
+  savedStack = stack;
   const [paywall, setPaywall] = useState<SongSummary | null>(null);
   const view = stack[stack.length - 1];
 
@@ -69,7 +75,13 @@ export function Songs({ notation, isAdmin, onFullscreen }: Props) {
       break;
     case "analysis":
       screen = (
-        <AnalysisPlayer key={view.id} analysisId={view.id} notation={notation} onBack={back} />
+        <AnalysisPlayer
+          key={view.id}
+          analysisId={view.id}
+          notation={notation}
+          onBack={back}
+          onOpenTuner={onOpenTuner}
+        />
       );
       break;
     case "admin":

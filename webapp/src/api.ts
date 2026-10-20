@@ -103,6 +103,10 @@ export interface AnalysisSummary {
   bpm: number | null;
   duration_sec: number | null;
   chords_preview: ChordJson[];
+  tuning_offset_cents: number | null; // sub-semitone detuning the engine corrected
+  // Most likely played in a down-tuning: shift -1 = Eb standard, -2 = D standard.
+  alt_tuning: { name: string; shift: number } | null;
+  suggested_capo: number | null; // easier shapes in standard tuning; 0 = none
   created_at: string;
   finished_at: string | null;
 }

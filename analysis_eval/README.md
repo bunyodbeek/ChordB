@@ -28,3 +28,13 @@ uv run python -m app.analysis.synth ../analysis_eval     # synthetic_am.wav for 
 uv run python -m app.analysis.evaluate                   # all songs here
 uv run python -m app.analysis.evaluate --self-transition 0.9 --key-boost 2
 ```
+
+Columns:
+
+- `tune`: corrected tuning offset (cents).
+- `alt`: detected down-tuning.
+- `exact`: accuracy at sounding pitch.
+- `best±2`: best accuracy over whole-song shifts of −2..+2, with the shift. When `exact` is low but `best±2` is high, the errors are only a tuning shift.
+- `no prior`: exact accuracy without the key prior.
+
+Write ground truth the way the chord sheet has it (as played). For a cover tuned a half step down, `best±2` then shows `(+1)`.

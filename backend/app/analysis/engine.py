@@ -14,6 +14,7 @@ import numpy as np
 from app.analysis import ENGINE_VERSION
 from app.analysis.audio import SAMPLE_RATE, AnalysisError, load_audio
 from app.analysis.decode import DecodeConfig, Key, Segment, decode, estimate_key, state_chord
+from app.analysis.tuning import TuningAdvice, advise
 
 HOP = 512
 # Median-filter size for HPSS; 17 is ~40% faster than librosa's 31 at a similar split.
@@ -36,6 +37,7 @@ class Features:
     chroma: np.ndarray  # (12, T) beat-synchronous chroma, each column max-normalised
     quiet: np.ndarray  # (T,) beats with no usable harmonic energy
     global_chroma: np.ndarray  # (12,) for key estimation
+    tuning_cents: float = 0.0  # estimated deviation from A440, -50..+50
 
     @property
     def beat_period(self) -> float:
@@ -51,6 +53,8 @@ class AnalysisResult:
     beats: list[float]
     duration_sec: float
     segments: list[Segment]
+    tuning_cents: float = 0.0
+    advice: TuningAdvice = field(default_factory=lambda: TuningAdvice(None, 0, {}))
     engine_version: str = ENGINE_VERSION
     config: DecodeConfig = field(default_factory=DecodeConfig)
 
@@ -79,6 +83,11 @@ class AnalysisResult:
             "duration_sec": round(self.duration_sec, 3),
             "beats": [round(b, 3) for b in self.beats],
             "events": self.events(),
+            "tuning_offset_cents": round(self.tuning_cents, 1),
+            # Events are sounding pitch. In alt_tuning the shapes are each chord moved
+            # up by -shift semitones (Fm in Eb standard is played as an F#m shape).
+            "alt_tuning": self.advice.alt_tuning,
+            "suggested_capo": self.advice.suggested_capo,
         }
 
 
@@ -121,8 +130,15 @@ def extract_features(y: np.ndarray, sr: int = SAMPLE_RATE) -> Features:
     with warnings.catch_warnings():
         # Tuning estimation warns on silent input; the quiet mask handles that case.
         warnings.simplefilter("ignore", UserWarning)
+        # Sub-semitone detuning (a guitar tuned 30 cents flat, a slightly sped-up
+        # upload): estimated once on the harmonic part, in fractions of a semitone,
+        # and corrected for in the CQT. Whole-semitone shifts are tuning.py's job.
+        tuning = float(librosa.estimate_tuning(y=y_harm, sr=sr))
+        if not np.isfinite(tuning):
+            tuning = 0.0
         chroma = librosa.feature.chroma_cqt(
-            y=y_harm, sr=sr, hop_length=HOP, fmin=CHROMA_FMIN, n_octaves=CHROMA_OCTAVES
+            y=y_harm, sr=sr, hop_length=HOP, fmin=CHROMA_FMIN, n_octaves=CHROMA_OCTAVES,
+            tuning=tuning,
         )
     rms = librosa.feature.rms(y=y_harm, hop_length=HOP)[0]
     n = min(chroma.shape[1], len(rms))
@@ -159,6 +175,7 @@ def extract_features(y: np.ndarray, sr: int = SAMPLE_RATE) -> Features:
         chroma=beat_chroma,
         quiet=quiet,
         global_chroma=chroma[:, loud].sum(axis=1) if loud.any() else np.zeros(12),
+        tuning_cents=tuning * 100,
     )
 
 
@@ -174,6 +191,8 @@ def decode_features(features: Features, cfg: DecodeConfig = DecodeConfig()) -> A
         beats=[float(b) for b in features.beats],
         duration_sec=features.duration_sec,
         segments=segments,
+        tuning_cents=features.tuning_cents,
+        advice=advise(segments),
         config=cfg,
     )
 

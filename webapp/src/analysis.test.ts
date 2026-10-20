@@ -43,6 +43,7 @@ function detail(over: Partial<AnalysisDetail> = {}): AnalysisDetail {
     id: 1, source: "upload", source_ref: "qoshiq.m4a", title: null, youtube_id: null,
     status: "done", error_code: null, cache_hit: false, key: AM, bpm: 96, duration_sec: 12,
     chords_preview: [AM, F], created_at: "", finished_at: "",
+    tuning_offset_cents: 0, alt_tuning: null, suggested_capo: 0,
     beats: [0.5, 1.1],
     events: [
       { start_sec: 0, end_sec: 4, chord: AM, confidence: 0.9 },

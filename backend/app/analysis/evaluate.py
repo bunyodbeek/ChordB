@@ -1,4 +1,12 @@
-"""Beat-level accuracy against hand-made ground truth, with and without the key prior.
+"""Beat-level accuracy against hand-made ground truth.
+
+Per song it prints:
+- tune: the sub-semitone tuning offset the engine corrected for (cents);
+- alt: the down-tuning the song was most likely played in (Eb / D standard), if any;
+- exact: accuracy as detected (sounding pitch), with the key prior;
+- best±2: the best accuracy over whole-song shifts of -2..+2 semitones, and that shift.
+  exact low but best±2 high = only a tuning/transposition shift, not chord errors;
+- no prior: exact accuracy without the key prior.
 
     python -m app.analysis.evaluate [DIR] [--self-transition 0.85] [--key-boost 1.5]
 
@@ -26,6 +34,7 @@ from pathlib import Path
 from app.analysis.audio import SAMPLE_RATE, AnalysisError, load_audio
 from app.analysis.decode import N_STATE, DecodeConfig, Segment, chord_state
 from app.analysis.engine import decode_features, extract_features
+from app.analysis.tuning import transpose_state
 from chordb_common.models import NotationKind, Quality
 from chordb_common.notation import Chord, format_chord, parse_chord
 
@@ -79,12 +88,24 @@ def state_at(segments: list[Segment], t: float) -> int:
     return segments[i].state
 
 
-def accuracy(segments: list[Segment], truth: list[GroundTruthBeat]) -> float:
+def accuracy(segments: list[Segment], truth: list[GroundTruthBeat], shift: int = 0) -> float:
+    """Share of scored beats right, after moving every predicted chord by `shift` semitones."""
     scored = [b for b in truth if b.state is not None]
     if not scored:
         return 0.0
-    hits = sum(state_at(segments, (b.start_sec + b.end_sec) / 2) == b.state for b in scored)
+    hits = sum(
+        transpose_state(state_at(segments, (b.start_sec + b.end_sec) / 2), shift) == b.state
+        for b in scored
+    )
     return hits / len(scored)
+
+
+def best_shift_accuracy(
+    segments: list[Segment], truth: list[GroundTruthBeat], max_shift: int = 2
+) -> tuple[float, int]:
+    """Transposition-invariant accuracy: the best over shifts -max..+max (ties: smallest)."""
+    shifts = sorted(range(-max_shift, max_shift + 1), key=abs)
+    return max(((accuracy(segments, truth, k), k) for k in shifts), key=lambda x: x[0])
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -107,31 +128,40 @@ def main(argv: list[str] | None = None) -> int:
         print(f"no ground-truth JSON files in {args.dir}")
         return 1
 
-    print(f"{'song':<36} {'key':>5} {'prior':>7} {'no prior':>9}")
-    rows: list[tuple[float, float]] = []
+    print(f"{'song':<32} {'key':>4} {'tune':>5} {'alt':>4} {'exact':>6} {'best±2':>11} {'no prior':>9}")
+    rows: list[tuple[float, float, float]] = []
     for path in files:
         spec = json.loads(path.read_text(encoding="utf-8"))
-        name = spec.get("title", path.stem)[:36]
+        name = spec.get("title", path.stem)[:32]
         audio = path.parent / spec["audio"]
         try:
             features = extract_features(load_audio(audio), SAMPLE_RATE)
         except AnalysisError as e:
-            print(f"{name:<36} skipped: {e.code} ({e})")
+            print(f"{name:<32} skipped: {e.code} ({e})")
             continue
         truth = ground_truth_beats(spec)
         with_prior = decode_features(features, cfg)
         without = decode_features(features, cfg.without_key_prior())
         key = with_prior.key
         key_name = "-" if key is None else format_chord(Chord(key.root, key.quality), LETTER)
-        a, b = accuracy(with_prior.segments, truth), accuracy(without.segments, truth)
-        rows.append((a, b))
-        print(f"{name:<36} {key_name:>5} {a:>7.1%} {b:>9.1%}")
+        exact = accuracy(with_prior.segments, truth)
+        best, shift = best_shift_accuracy(with_prior.segments, truth)
+        no_prior = accuracy(without.segments, truth)
+        rows.append((exact, best, no_prior))
+        alt = with_prior.advice.alt_tuning
+        alt_name = {-1: "Eb", -2: "D"}.get(alt["shift"], "?") if alt else "-"
+        print(
+            f"{name:<32} {key_name:>4} {with_prior.tuning_cents:>+4.0f}c {alt_name:>4} "
+            f"{exact:>6.1%} {best:>6.1%} ({shift:+d}) {no_prior:>9.1%}"
+        )
 
     if not rows:
         return 1
-    avg_a = sum(r[0] for r in rows) / len(rows)
-    avg_b = sum(r[1] for r in rows) / len(rows)
-    print(f"{'average (' + str(len(rows)) + ' songs)':<36} {'':>5} {avg_a:>7.1%} {avg_b:>9.1%}")
+    avg = [sum(r[i] for r in rows) / len(rows) for i in range(3)]
+    print(
+        f"{'average (' + str(len(rows)) + ' songs)':<32} {'':>4} {'':>5} {'':>4} "
+        f"{avg[0]:>6.1%} {avg[1]:>6.1%}      {avg[2]:>9.1%}"
+    )
     return 0
 
 
