@@ -1,7 +1,7 @@
 from collections.abc import AsyncIterator
 from typing import Annotated
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from chordb_common.config import get_settings
@@ -30,10 +30,15 @@ def _unauthorized(detail: str) -> HTTPException:
 
 
 async def current_user(
+    request: Request,
     session: Session,
     authorization: Annotated[str | None, Header()] = None,
 ) -> User:
-    """Validate `Authorization: tma <initData>` and upsert the user."""
+    """Validate `Authorization: tma <initData>` and upsert the user.
+
+    The initData's start_param (from a t.me/...?startapp= link) lands in
+    request.state.start_param.
+    """
     if not authorization:
         raise _unauthorized("missing Authorization header")
     scheme, _, raw = authorization.partition(" ")
@@ -47,6 +52,7 @@ async def current_user(
         )
     except InitDataError as e:
         raise _unauthorized(str(e)) from e
+    request.state.start_param = data.start_param
 
     u = data.user
     user = await upsert_user(

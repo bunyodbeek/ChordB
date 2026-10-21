@@ -4,13 +4,17 @@ from fastapi import APIRouter, HTTPException, Query, Response, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 
-from chordb_common.models import Difficulty, Song, UserSongProgress
+from chordb_common.models import Difficulty, SearchMiss, Song, UserEventType, UserSongProgress
 
 from app.catalog import can_open, detail, get_visible, summaries, visible
 from app.deps import CurrentUser, Session
+from app.premium import log_event
 from app.schemas import ContinueOut, ProgressIn, SongDetail, SongsOut
 
 router = APIRouter(prefix="/songs", tags=["songs"])
+
+# Shorter searches are mostly someone still typing.
+MISS_MIN_LEN = 3
 
 
 def _like(q: str) -> str:
@@ -40,6 +44,12 @@ async def list_songs(
     if no_capo:
         stmt = stmt.where(Song.capo == 0)
     songs = (await session.scalars(stmt.order_by(Song.created_at.desc(), Song.id.desc()))).all()
+
+    # Nothing in the catalog for a plain search: a content idea for the admin panel.
+    query = (q or "").strip().lower()
+    if not songs and len(query) >= MISS_MIN_LEN and not (easy or uzbek or no_capo):
+        session.add(SearchMiss(user_id=user.id, query=query))
+        await session.commit()
 
     # Most recent unfinished song, regardless of the filters above.
     recent = (
@@ -71,6 +81,8 @@ async def list_songs(
 )
 async def get_song(song_id: int, user: CurrentUser, session: Session) -> SongDetail:
     song = await get_visible(session, song_id, user)
+    await log_event(session, user, UserEventType.SONG_OPENED)
+    await session.commit()
     if not can_open(song, user):
         (summary,) = await summaries(session, [song], user)
         raise HTTPException(

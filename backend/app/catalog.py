@@ -28,7 +28,7 @@ def visible(user: User) -> list[ColumnElement[bool]]:
 
 
 def can_open(song: Song, user: User) -> bool:
-    return not song.is_premium or user.is_premium or is_admin(user)
+    return not song.is_premium or user.has_premium or is_admin(user)
 
 
 async def get_visible(session: AsyncSession, song_id: int, user: User) -> Song:

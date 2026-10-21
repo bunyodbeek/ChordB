@@ -4,7 +4,7 @@ from fastapi import APIRouter, FastAPI
 
 from chordb_common.config import get_settings
 
-from app.routes import admin, analyze, me, songs
+from app.routes import admin, admin_stats, admin_users, analyze, me, payments, songs
 
 settings = get_settings()
 is_dev = settings.env == "dev"
@@ -28,6 +28,9 @@ api = APIRouter(prefix="/api")
 api.include_router(me.router)
 api.include_router(songs.router)
 api.include_router(admin.router)
+api.include_router(admin_users.router)
+api.include_router(admin_stats.router)
+api.include_router(payments.router)
 api.include_router(analyze.router)
 
 

@@ -30,3 +30,8 @@ NOTIFICATIONS_OFF_BUTTON = "🔕 Eslatmalarni oʻchirish"
 NOTIFICATIONS_ON_BUTTON = "🔔 Qayta yoqish"
 NOTIFICATIONS_OFF = "Eslatmalar oʻchirildi. Istalgan vaqt qayta yoqishingiz mumkin."
 NOTIFICATIONS_ON = "Eslatmalar yoqildi 🔔"
+
+ADMIN_PANEL = (
+    "Admin panel. Telegram Desktop’da ochsangiz, keng oynada qulayroq."
+)
+ADMIN_PANEL_BUTTON = "📊 Admin panel"

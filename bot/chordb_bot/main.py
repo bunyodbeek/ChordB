@@ -4,7 +4,8 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from aiogram.types import BotCommand, MenuButtonWebApp, WebAppInfo
+from aiogram.exceptions import TelegramAPIError
+from aiogram.types import BotCommand, BotCommandScopeChat, MenuButtonWebApp, WebAppInfo
 
 from chordb_common.config import get_settings
 from chordb_common.db import get_sessionmaker
@@ -21,8 +22,19 @@ def make_bot() -> Bot:
 
 
 async def setup_bot_ui(bot: Bot) -> None:
-    url = get_settings().webapp_url
-    await bot.set_my_commands([BotCommand(command="start", description="Tyunerni ochish")])
+    settings = get_settings()
+    url = settings.webapp_url
+    start = BotCommand(command="start", description="Tyunerni ochish")
+    await bot.set_my_commands([start])
+    # Admins also see /admin in their command menu.
+    for admin_id in settings.admin_id_set:
+        try:
+            await bot.set_my_commands(
+                [start, BotCommand(command="admin", description="Admin panel")],
+                scope=BotCommandScopeChat(chat_id=admin_id),
+            )
+        except TelegramAPIError as e:  # e.g. the admin never started the bot
+            log.warning("admin commands for %s not set: %s", admin_id, e.message)
     if url.startswith("https://"):
         await bot.set_chat_menu_button(
             menu_button=MenuButtonWebApp(text=texts.MENU_BUTTON, web_app=WebAppInfo(url=url))

@@ -24,9 +24,11 @@ The backend checks the HMAC-SHA256 signature using `BOT_TOKEN` and rejects initD
 
 | Method | Path | |
 |---|---|---|
-| GET | `/api/me` | Profile, `settings` and `needs_write_access` |
+| GET | `/api/me` | Profile, `settings`, `needs_write_access`, `is_premium`, `premium_until`, and `start_song_id` when opened through a song link |
 | PATCH | `/api/me/settings` | `{"notation": "letter" \| "solfege", "notifications_enabled": bool}`. Either field can be omitted. |
-| POST | `/api/me/events` | `{"type": "tuner_opened" \| "write_access_requested" \| "write_access_granted"}` |
+| POST | `/api/me/events` | `{"type": "tuner_opened" \| "write_access_requested" \| "write_access_granted" \| "premium_viewed"}` |
+| GET | `/api/payments` | `{card, card_holder, plans[], latest}`: where to pay, the plans, and the user's latest payment |
+| POST | `/api/payments` | Multipart `plan` (`month` \| `year`) and `receipt` (an image, ≤ 5 MB). **409** `already_pending` while one is waiting. Admins get a bot alert. |
 | GET | `/api/songs` | `?q=&easy=&uzbek=&no_capo=`. Returns `{continue_playing, songs[]}`, published songs only. Each song has `locked` and `chords_preview` (its first 4 distinct chords). |
 | GET | `/api/songs/{id}` | Song with `youtube_id`, `sections`, `events`, `position_sec`. A locked premium song gets **403** with `detail = {code: "premium_required", paywall: true, song}`. |
 | PUT | `/api/songs/{id}/progress` | `{"position_sec": 61.5}`. Feeds `continue_playing`. |
@@ -37,7 +39,7 @@ The backend checks the HMAC-SHA256 signature using `BOT_TOKEN` and rejects initD
 
 Chords are always canonical: `{"root": 0..11, "quality": "maj"|"min"|"7"|"maj7"|"m7"|"dim"|"aug"|"sus2"|"sus4"}`. The webapp renders them in the user's notation.
 
-Admin endpoints accept only the Telegram ids in `ADMIN_IDS`. `/api/me` reports `is_admin` and `is_premium`. Premium here is ChordB's own `users.is_premium`, not Telegram Premium.
+Admin endpoints accept only the Telegram ids in `ADMIN_IDS`. `/api/me` reports `is_admin` and `is_premium`. Premium here is ChordB's own, not Telegram Premium: `users.is_premium` (no end date) or `users.premium_until` (a paid or granted period).
 
 | Method | Path | |
 |---|---|---|
@@ -46,6 +48,16 @@ Admin endpoints accept only the Telegram ids in `ADMIN_IDS`. `/api/me` reports `
 | PATCH | `/api/admin/songs/{id}` | Update any of those fields |
 | PUT | `/api/admin/songs/{id}/events` | `{sections: [{title, start_sec}], events: [{time_sec, root, quality}]}`. Replaces the whole timeline. Each event belongs to the last section that starts at or before it. |
 | PATCH | `/api/admin/songs/{id}/publish` | `{"is_published": true}`. Requires at least one chord event. |
+| GET | `/api/admin/songs/{id}/link` | `{url, opened, paid}`: the t.me song link and how many came (and paid) through it |
+| GET | `/api/admin/stats` | `?period=today\|7d\|30d`. Headline numbers, sign-ups per day (14 days), the funnel, pending payments, catalog requests |
+| GET | `/api/admin/users` | `?filter=all\|premium\|active_free\|pending\|blocked&q=&offset=`. `{counts, total, items[]}`, 50 per page |
+| GET | `/api/admin/users/{id}` | The user, activity stats, pending payment, payments and premium history |
+| POST | `/api/admin/users/{id}/premium` | `{"days": 30 \| null, "note"}`: adds days after what they have; `null` = no end date. The bot tells the user. |
+| POST | `/api/admin/users/{id}/premium/revoke` | `{"note"}` |
+| GET | `/api/admin/payments` | `?status=pending` (default, oldest first) \| `approved` \| `rejected` |
+| GET | `/api/admin/payments/{id}/receipt` | The receipt image |
+| POST | `/api/admin/payments/{id}/approve` | `{"days"?, "note"?}`: premium for the plan's days (or `days`). The bot tells the user. |
+| POST | `/api/admin/payments/{id}/reject` | `{"note"?}`: the note is sent to the user as the reason |
 
 In `ENV=dev`, interactive docs are at `/api/docs`.
 
@@ -293,6 +305,18 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 sh deploy/ytdlp-update.sh        # a rebuild resets yt-dlp to uv.lock's version
 (cd webapp && npm ci && npm run build)
 ```
+
+## Admin panel and premium
+
+The admin panel is a page of the same webapp at `/admin` (`webapp/src/panel/`, designs in `docs/design/`). It uses the same initData login, so it opens inside Telegram: send `/admin` to the bot (it answers admins only) and open it in **Telegram Desktop**, where the panel goes full-window. Admins also find it at the bottom of the Profile tab. Pages:
+
+- **Panel**: users, premium, active, revenue this month, sign-ups per day, the funnel (opened → tuner → song → premium sheet → payment sent → approved), payments waiting, and songs people looked for but the catalog lacks (searches that found nothing and YouTube analyses of songs not in the catalog, last 30 days).
+- **Toʻlovlar / Foydalanuvchilar**: search and filter users, review a receipt, approve or reject, grant or revoke premium, and see the history.
+- **Qoʻshiqlar**: paste a YouTube link, run the automatic analysis, check the chords (low-confidence ones are dashed), fill in the details and save or publish. The chord editor fixes timings. Each saved song gets a `t.me/<BOT_USERNAME>/<WEBAPP_SHORT_NAME>?startapp=song_<id>` link for Instagram, which opens the Mini App on that song.
+
+Premium is paid by card transfer. In the Mini App's premium sheet (a locked song, or Profile → Premium olish), the user picks 30 days (`PREMIUM_PRICE_MONTH`) or a year (`PREMIUM_PRICE_YEAR`), pays to `PAYMENT_CARD` and uploads the receipt screenshot. The receipt is stored in Postgres (`payments.receipt`), and admins get a bot alert. Approving adds the days after any premium the user still has. Approving, rejecting (with the reason) and granting all message the user through the bot. Without `PAYMENT_CARD`, the sheet says premium is coming soon.
+
+Activity behind the stats is in `user_events`, at most one row per user, type and day (`NOTIFY_TZ`): `app_opened` (each `/api/me`), `tuner_opened`, `song_opened`, `premium_viewed` and `deep_link`.
 
 ## Notifications
 

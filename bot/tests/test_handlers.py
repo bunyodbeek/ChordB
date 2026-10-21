@@ -129,3 +129,26 @@ async def test_notifications_off_button(sessionmaker) -> None:
     assert (await get_user(sessionmaker)).notifications_enabled is False
     assert any(isinstance(r, AnswerCallbackQuery) for r in session.requests)
     assert any(isinstance(r, EditMessageReplyMarkup) for r in session.requests)
+
+
+def command(user: TgUser, text: str) -> Update:
+    msg = Message(
+        message_id=11,
+        date=NOW,
+        chat=Chat(id=user.id, type="private"),
+        from_user=user,
+        text=text,
+        entities=[MessageEntity(type="bot_command", offset=0, length=len(text))],
+    )
+    return Update(update_id=4, message=msg)
+
+
+async def test_admin_command_opens_panel_for_admins_only(sessionmaker) -> None:
+    bot, dp, session = setup(sessionmaker)
+    await dp.feed_update(bot, command(ALICE, "/admin"))
+    assert not [r for r in session.requests if isinstance(r, SendMessage)]
+
+    admin = TgUser(id=7, is_bot=False, first_name="Admin")  # ADMIN_IDS=7 in conftest
+    await dp.feed_update(bot, command(admin, "/admin"))
+    (sent,) = [r for r in session.requests if isinstance(r, SendMessage)]
+    assert sent.reply_markup.inline_keyboard[0][0].web_app.url == "https://chordb.test/admin"

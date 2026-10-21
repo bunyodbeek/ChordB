@@ -1,16 +1,25 @@
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, HTTPException, Response, status
+from fastapi import APIRouter, HTTPException, Request, Response, status
+
+from chordb_common.models import UserEventType
 
 from app.deps import CurrentUser, Session
+from app.premium import log_event, parse_song_param
 from app.schemas import EventIn, MeOut, SettingsPatch
 
 router = APIRouter(prefix="/me", tags=["me"])
 
 
 @router.get("", response_model=MeOut)
-async def get_me(user: CurrentUser) -> MeOut:
-    return MeOut.from_user(user)
+async def get_me(request: Request, user: CurrentUser, session: Session) -> MeOut:
+    # The webapp calls this once per launch: that is the "opened the app" signal.
+    await log_event(session, user, UserEventType.APP_OPENED)
+    song_id = parse_song_param(getattr(request.state, "start_param", None))
+    if song_id is not None:
+        await log_event(session, user, UserEventType.DEEP_LINK, ref=str(song_id))
+    await session.commit()
+    return MeOut.from_user(user).model_copy(update={"start_song_id": song_id})
 
 
 @router.patch("/settings", response_model=MeOut)
@@ -32,11 +41,14 @@ async def post_event(body: EventIn, user: CurrentUser, session: Session) -> Resp
         case "tuner_opened":
             if user.tuner_opened_at is None:
                 user.tuner_opened_at = now
+            await log_event(session, user, UserEventType.TUNER_OPENED)
         case "write_access_requested":
             user.write_access_requested_at = user.write_access_requested_at or now
         case "write_access_granted":
             user.write_access_requested_at = user.write_access_requested_at or now
             user.allows_write_to_pm = True
+        case "premium_viewed":
+            await log_event(session, user, UserEventType.PREMIUM_VIEWED)
     session.add(user)
     await session.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

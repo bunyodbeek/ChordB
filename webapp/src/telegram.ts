@@ -14,6 +14,7 @@ interface TelegramWebApp {
   expand(): void;
   isVersionAtLeast(version: string): boolean;
   disableVerticalSwipes?(): void;
+  requestFullscreen?(): void;
   openLink?(url: string): void;
   showConfirm?(message: string, callback: (ok: boolean) => void): void;
   setHeaderColor?(color: string): void;
@@ -106,6 +107,33 @@ export function confirmDialog(message: string): Promise<boolean> {
 export function openLink(url: string): void {
   if (inTelegram && tg?.openLink) tg.openLink(url);
   else window.open(url, "_blank", "noopener");
+}
+
+/** Telegram Desktop / macOS / Web: a window with room for the admin panel. */
+export const onDesktop = inTelegram && ["tdesktop", "macos", "weba", "webk"].includes(tg!.platform);
+
+/** Full-window Mini App (Bot API 8.0+), for the admin panel on desktop. */
+export function requestFullscreen(): void {
+  if (onDesktop && tg!.isVersionAtLeast("8.0")) tg!.requestFullscreen?.();
+}
+
+/** Copy to the clipboard; false when the WebView refuses. */
+export async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    // Older WebViews: the select-and-copy fallback.
+    const area = document.createElement("textarea");
+    area.value = text;
+    area.style.position = "fixed";
+    area.style.opacity = "0";
+    document.body.appendChild(area);
+    area.select();
+    const ok = document.execCommand("copy");
+    area.remove();
+    return ok;
+  }
 }
 
 export const haptic = {

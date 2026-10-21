@@ -20,7 +20,9 @@ export interface Me {
   settings: Settings;
   needs_write_access: boolean;
   is_premium: boolean; // ChordB premium: unlocks premium songs
+  premium_until: string | null; // null with is_premium = no end date
   is_admin: boolean;
+  start_song_id: number | null; // opened through a t.me/…?startapp=song_<id> link
 }
 
 /** Canonical chord as stored by the backend; render with formatChord. */
@@ -84,7 +86,121 @@ export interface SongFilters {
   no_capo?: boolean;
 }
 
-export type EventType = "tuner_opened" | "write_access_requested" | "write_access_granted";
+export type EventType =
+  | "tuner_opened"
+  | "write_access_requested"
+  | "write_access_granted"
+  | "premium_viewed";
+
+// --- premium payments (/api/payments) ---
+
+export interface Plan {
+  id: "month" | "year";
+  days: number;
+  price: number; // soʻm
+}
+
+export type PaymentStatus = "pending" | "approved" | "rejected";
+
+export interface Payment {
+  id: number;
+  plan: string;
+  days: number;
+  amount: number;
+  status: PaymentStatus;
+  note: string | null; // the admin's reason on reject
+  created_at: string;
+  decided_at: string | null;
+}
+
+export interface PaymentInfo {
+  card: string;
+  card_holder: string;
+  plans: Plan[];
+  latest: Payment | null; // pending, or the last decision
+}
+
+// --- admin panel (/api/admin) ---
+
+export interface UserBrief {
+  id: number;
+  telegram_id: number;
+  first_name: string;
+  last_name: string | null;
+  username: string | null;
+  photo_url: string | null;
+}
+
+export interface AdminUserRow extends UserBrief {
+  created_at: string;
+  last_seen_at: string;
+  has_premium: boolean;
+  premium_forever: boolean;
+  premium_until: string | null;
+  is_blocked_bot: boolean;
+  pending_payment: boolean;
+}
+
+export type UserFilter = "all" | "premium" | "active_free" | "pending" | "blocked";
+
+export interface AdminUsers {
+  counts: Record<UserFilter, number>;
+  total: number;
+  items: AdminUserRow[];
+}
+
+export interface AdminPayment extends Payment {
+  user: UserBrief;
+}
+
+export interface HistoryItem {
+  kind: "granted" | "paid" | "rejected" | "revoked" | "expired";
+  days: number | null;
+  note: string | null;
+  admin_name: string | null;
+  created_at: string;
+}
+
+export interface AdminUserDetail {
+  user: AdminUserRow;
+  stats: { active_days: number; songs: number; analyses: number };
+  pending: Payment | null;
+  payments: Payment[];
+  history: HistoryItem[];
+}
+
+export type Period = "today" | "7d" | "30d";
+
+export type FunnelStepId = "opened" | "tuner" | "song" | "premium_viewed" | "payment_sent" | "approved";
+
+export interface CatalogRequest {
+  title: string;
+  users: number;
+  searches: number;
+  analyses: number;
+  youtube_id: string | null;
+}
+
+export interface AdminStats {
+  period: Period;
+  users_total: number;
+  users_new: number;
+  premium: number;
+  active: number;
+  active_free: number;
+  revenue_month: number;
+  new_by_day: { day: string; count: number }[]; // the last 14 days, oldest first
+  funnel: { step: FunnelStepId; users: number }[];
+  pending_count: number;
+  pending: AdminPayment[];
+  requests: CatalogRequest[];
+}
+
+export interface SongLink {
+  url: string | null; // null until BOT_USERNAME is set on the server
+  opened: number;
+  paid: number;
+}
 
 // --- chord detection (/api/analyze) ---
 
@@ -182,8 +298,20 @@ function toApiError(status: number, detail: unknown, fallback: string): ApiError
   return new ApiError(status, message, detail);
 }
 
+/** An authenticated binary download (e.g. a receipt image), as an object URL. */
+async function blobUrl(path: string): Promise<string> {
+  const res = await fetch(`/api${path}`, { headers: { Authorization: `tma ${getInitData()}` } });
+  if (!res.ok) throw toApiError(res.status, null, res.statusText);
+  return URL.createObjectURL(await res.blob());
+}
+
 /** Multipart upload with progress (fetch can't report upload progress). */
-function upload<T>(path: string, file: File, onProgress: (fraction: number) => void): Promise<T> {
+function upload<T>(
+  path: string,
+  file: File,
+  onProgress: (fraction: number) => void,
+  { field = "file", extra = {} }: { field?: string; extra?: Record<string, string> } = {},
+): Promise<T> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `/api${path}`);
@@ -196,7 +324,8 @@ function upload<T>(path: string, file: File, onProgress: (fraction: number) => v
     };
     xhr.onerror = () => reject(new TypeError("network error"));
     const form = new FormData();
-    form.append("file", file, file.name);
+    for (const [k, v] of Object.entries(extra)) form.append(k, v);
+    form.append(field, file, file.name);
     xhr.send(form);
   });
 }
@@ -232,8 +361,34 @@ export const api = {
     history: () => request<AnalysisHistory>("GET", "/analyze/history"),
   },
 
+  payments: {
+    info: () => request<PaymentInfo>("GET", "/payments"),
+    create: (plan: Plan["id"], receipt: File, onProgress: (fraction: number) => void) =>
+      upload<Payment>("/payments", receipt, onProgress, { field: "receipt", extra: { plan } }),
+  },
+
   // ADMIN_IDS only (me.is_admin).
   admin: {
+    stats: (period: Period) => request<AdminStats>("GET", `/admin/stats?period=${period}`),
+    users: (filter: UserFilter, q: string, offset = 0, signal?: AbortSignal) => {
+      const p = new URLSearchParams({ filter, offset: String(offset) });
+      if (q.trim()) p.set("q", q.trim());
+      return request<AdminUsers>("GET", `/admin/users?${p}`, undefined, signal);
+    },
+    user: (id: number) => request<AdminUserDetail>("GET", `/admin/users/${id}`),
+    grant: (id: number, days: number | null, note: string) =>
+      request<AdminUserDetail>("POST", `/admin/users/${id}/premium`, { days, note: note || null }),
+    revoke: (id: number) => request<AdminUserDetail>("POST", `/admin/users/${id}/premium/revoke`, {}),
+    payments: () => request<AdminPayment[]>("GET", "/admin/payments"),
+    receipt: (paymentId: number) => blobUrl(`/admin/payments/${paymentId}/receipt`),
+    approve: (paymentId: number, days: number | null, note: string) =>
+      request<AdminUserDetail>("POST", `/admin/payments/${paymentId}/approve`, {
+        days,
+        note: note || null,
+      }),
+    reject: (paymentId: number, note: string) =>
+      request<AdminUserDetail>("POST", `/admin/payments/${paymentId}/reject`, { note: note || null }),
+    songLink: (id: number) => request<SongLink>("GET", `/admin/songs/${id}/link`),
     songs: () => request<SongSummary[]>("GET", "/admin/songs"),
     create: (body: SongInput) => request<SongDetail>("POST", "/admin/songs", body),
     update: (id: number, patch: Partial<SongInput>) =>

@@ -4,7 +4,7 @@ import { api, type Me, type Settings } from "./api";
 import { Chords } from "./components/Chords";
 import { NotationPicker } from "./components/NotationPicker";
 import { Profile } from "./components/Profile";
-import { Songs } from "./components/Songs";
+import { Songs, openSongOnLaunch } from "./components/Songs";
 import { TabBar, type Tab } from "./components/TabBar";
 import { Tuner } from "./components/Tuner";
 import { getInitData } from "./telegram";
@@ -43,7 +43,13 @@ export default function App() {
     }
     setLoad({ state: "loading" });
     api.me().then(
-      (me) => setLoad({ state: "ready", me }),
+      (me) => {
+        if (me.start_song_id !== null) {
+          openSongOnLaunch(me.start_song_id);
+          setTab("songs");
+        }
+        setLoad({ state: "ready", me });
+      },
       () => setLoad({ state: "error", message: t.loadFailed, canRetry: true }),
     );
   }, []);

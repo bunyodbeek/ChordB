@@ -3,9 +3,9 @@ import { useCallback, useEffect, useState } from "react";
 import type { SongSummary } from "../api";
 import type { NotationKind } from "../notation";
 import type { PresetId } from "../tuning";
-import { t } from "../texts";
 import { AdminSongs } from "./admin/AdminSongs";
 import { AnalysisPlayer } from "./AnalysisPlayer";
+import { PremiumSheet } from "./PremiumSheet";
 import { ChordEditor } from "./admin/ChordEditor";
 import { SongForm } from "./admin/SongForm";
 import { SongPlayer } from "./SongPlayer";
@@ -28,6 +28,11 @@ interface Props {
 
 // The screen stack outlives the tab: after "Tyunerni ochish" and back, the same song is open.
 let savedStack: View[] = [{ name: "list" }];
+
+/** Start on this song (a t.me/…?startapp=song_<id> link); back goes to the list. */
+export function openSongOnLaunch(id: number): void {
+  savedStack = [{ name: "list" }, { name: "player", id }];
+}
 
 /** The Qoʻshiqlar tab: a small stack of screens; back pops one. */
 export function Songs({ notation, isAdmin, onFullscreen, onOpenTuner }: Props) {
@@ -115,29 +120,5 @@ export function Songs({ notation, isAdmin, onFullscreen, onOpenTuner }: Props) {
       {screen}
       {paywall && <PremiumSheet song={paywall} onClose={() => setPaywall(null)} />}
     </>
-  );
-}
-
-function PremiumSheet({ song, onClose }: { song: SongSummary; onClose: () => void }) {
-  return (
-    <div className="overlay" onClick={onClose}>
-      <div
-        className="sheet"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="premium-title"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <span className="tag premium">{t.songs.premium}</span>
-        <h2 id="premium-title">{t.songs.premiumTitle}</h2>
-        <p className="sheet-song">
-          {song.title} · <span className="muted">{song.artist}</span>
-        </p>
-        <p className="muted">{t.songs.premiumText}</p>
-        <button type="button" className="button wide" onClick={onClose}>
-          {t.songs.ok}
-        </button>
-      </div>
-    </div>
   );
 }

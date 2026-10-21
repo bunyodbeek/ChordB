@@ -26,6 +26,25 @@
   --connector: #d3d3cf;
   --pill-muted: #e9e9e5;
   --shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 2px 8px rgb(0 0 0 / 0.04);
+  /* Admin panel (docs/design/admin-*.reference.html) */
+  --blue-line: #c7d3ff;
+  --blue-deep: #15309e;
+  --red: #b42318;
+  --success: #12805c;
+  --success-soft: #ddf0e7;
+  --success-text: #0b5a40;
+  --amber-soft: #fff1dd;
+  --amber-text: #8a4b00;
+  --amber-deep: #5b3200;
+  --amber-line: #e0b97a;
+  --low: #c2410c;
+  --low-soft: #fff4e5;
+  --free-soft: #f1f2ef;
+  --free-text: #41464d;
+  --row-selected: #f5f8ff;
+  --ink-soft: #24272d; /* inputs on the dark Instagram card */
+  --ink-line: #3a3d42;
+  --ink-muted: #c4c7c1;
 
   --font: "Bricolage Grotesque", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -62,6 +81,24 @@
   --connector: #3a3a3e;
   --pill-muted: #26262a;
   --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+  --blue-line: #33457e;
+  --blue-deep: #c9d4ff;
+  --red: #ff7a6b;
+  --success: #2fa57a;
+  --success-soft: #16352a;
+  --success-text: #7fdcb6;
+  --amber-soft: #3a2a12;
+  --amber-text: #f3c27c;
+  --amber-deep: #f0d4ab;
+  --amber-line: #7a5a2a;
+  --low: #ff9a5c;
+  --low-soft: #3a2614;
+  --free-soft: #2a2a2e;
+  --free-text: #c4c4c9;
+  --row-selected: #1d2540;
+  --ink-soft: #2a2d33;
+  --ink-line: #44474d;
+  --ink-muted: #a8aba6;
 
   color-scheme: dark;
 }
@@ -2188,4 +2225,120 @@ h1 {
   overflow: visible;
   margin: 0.75rem 0 0;
   padding: 0;
+}
+
+/* Premium sheet: plans, card, receipt */
+
+.button.small-button {
+  padding: 0.55rem 0.9rem;
+  font-size: 0.9rem;
+  flex: none;
+}
+
+.premium-plans {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.premium-plan {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1.5px solid var(--line);
+  background: var(--card);
+  text-align: left;
+}
+
+.premium-plan[aria-checked="true"] {
+  border-color: var(--blue);
+  background: var(--blue-soft);
+}
+
+.premium-plan-name {
+  font-weight: 700;
+}
+
+.premium-plan-price {
+  font-family: var(--mono);
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.premium-plan[aria-checked="true"] .premium-plan-price {
+  color: var(--blue-text);
+}
+
+.premium-step {
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-top: 4px;
+}
+
+.premium-card {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--bg);
+}
+
+.premium-card-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  font-size: 0.85rem;
+}
+
+.premium-card-number {
+  font-family: var(--mono);
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  user-select: text;
+}
+
+.premium-copy {
+  flex: none;
+  padding: 0.5rem 0.8rem;
+  border-radius: 10px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.premium-pending {
+  width: 100%;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--amber-soft);
+  color: var(--amber-text);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.premium-pending-title {
+  font-weight: 700;
+}
+
+.premium-pending .muted {
+  color: var(--amber-deep);
+}
+
+.premium-rejected {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--free-soft);
+  color: var(--red);
+  font-size: 0.9rem;
 }

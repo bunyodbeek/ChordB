@@ -94,7 +94,7 @@ def copy_cached(cached: Analysis, user: User, *, source_ref: str, title: str | N
 
 
 def is_unlimited(user: User) -> bool:
-    return user.is_premium or is_admin(user)
+    return user.has_premium or is_admin(user)
 
 
 def _start_of_today() -> datetime:
