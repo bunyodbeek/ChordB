@@ -68,6 +68,7 @@ class NotificationType(StrEnum):
     WEEKLY_REMINDER = "weekly_reminder"
     DIRECT = "direct"
     BROADCAST = "broadcast"
+    PRACTICE_REMINDER = "practice_reminder"
 
 
 class NotificationStatus(StrEnum):
@@ -105,6 +106,8 @@ class User(Base):
         )
     )
     notifications_enabled: Mapped[bool] = mapped_column(server_default=text("true"))
+    # IANA zone from the webapp (Intl); practice days and reminders use it. None = NOTIFY_TZ.
+    timezone: Mapped[str | None] = mapped_column(String(64))
     is_blocked_bot: Mapped[bool] = mapped_column(server_default=text("false"))
 
     # Whether the bot may message the user (from initData / requestWriteAccess).
@@ -359,6 +362,10 @@ class UserEventType(StrEnum):
     SONG_OPENED = "song_opened"
     PREMIUM_VIEWED = "premium_viewed"
     DEEP_LINK = "deep_link"  # opened through t.me/<bot>/<app>?startapp=song_<id>; ref = song id
+    PRACTICE_STEP = "practice_step"  # ref = the step
+    GAME_START = "game_start"  # ref = the game
+    GAME_FINISH = "game_finish"  # ref = the game
+    CHORD_UNLOCK = "chord_unlock"  # ref = the chord, e.g. "Am"
 
 
 class UserEvent(Base):
@@ -390,5 +397,98 @@ class SearchMiss(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     query: Mapped[str] = mapped_column(String(100))  # trimmed, lower case
     created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class PracticeStep(StrEnum):
+    TUNE = "tune"
+    CHORD_SWITCH = "chord_switch"
+    EAR_TEST = "ear_test"
+
+
+class Game(StrEnum):
+    CHORD_SWITCH = "chord_switch"
+    EAR_TEST = "ear_test"
+
+
+class PracticeDay(Base):
+    """One calendar day (in the user's zone) of the daily practice: tune, switch, ear test."""
+
+    __tablename__ = "practice_days"
+    __table_args__ = (UniqueConstraint("user_id", "date", name="uq_practice_days_user_date"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    date: Mapped[date] = mapped_column(Date)
+    steps_done: Mapped[list] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))  # [step, …]
+    completed: Mapped[bool] = mapped_column(server_default=text("false"))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class Streak(Base):
+    __tablename__ = "streaks"
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    current: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    best: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    last_practice_date: Mapped[date | None] = mapped_column(Date)
+    freezes_left: Mapped[int] = mapped_column(SmallInteger, server_default=text("0"))
+    # First day of the month freezes_left was last refilled for.
+    freezes_month: Mapped[date | None] = mapped_column(Date)
+
+
+class GameResult(Base):
+    __tablename__ = "game_results"
+    __table_args__ = (Index("ix_game_results_user_created", "user_id", "created_at"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    game: Mapped[Game] = mapped_column(_str_enum(Game, "game"))
+    score: Mapped[int] = mapped_column(Integer)
+    details: Mapped[dict] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class PersonalBest(Base):
+    __tablename__ = "personal_bests"
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    game: Mapped[Game] = mapped_column(_str_enum(Game, "game"), primary_key=True)
+    # chord_switch: the chain ("Am-C-G-F"); ear_test: the level ("level1").
+    chain_key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[int] = mapped_column(Integer)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class UnlockMode(StrEnum):
+    PLAYED = "played"  # recognised through the mic
+    LISTENED = "listened"  # no mic: heard and confirmed by the user
+
+
+class ChordCollection(Base):
+    __tablename__ = "chord_collection"
+    __table_args__ = (
+        UniqueConstraint("user_id", "root", "quality", name="uq_chord_collection_chord"),
+        CheckConstraint("root BETWEEN 0 AND 11", name="ck_chord_collection_root"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    root: Mapped[int] = mapped_column(SmallInteger)
+    quality: Mapped[Quality] = mapped_column(_str_enum(Quality, "chord_quality"))
+    mode: Mapped[UnlockMode] = mapped_column(_str_enum(UnlockMode, "unlock_mode"))
+    unlocked_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

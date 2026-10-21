@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, Request, Response, status
 
-from chordb_common.models import UserEventType
+from chordb_common.models import Game, UserEventType
 
 from app.deps import CurrentUser, Session
 from app.premium import log_event, parse_song_param
@@ -15,11 +15,17 @@ router = APIRouter(prefix="/me", tags=["me"])
 async def get_me(request: Request, user: CurrentUser, session: Session) -> MeOut:
     # The webapp calls this once per launch: that is the "opened the app" signal.
     await log_event(session, user, UserEventType.APP_OPENED)
-    song_id = parse_song_param(getattr(request.state, "start_param", None))
+    start_param = getattr(request.state, "start_param", None)
+    song_id = parse_song_param(start_param)
     if song_id is not None:
         await log_event(session, user, UserEventType.DEEP_LINK, ref=str(song_id))
     await session.commit()
-    return MeOut.from_user(user).model_copy(update={"start_song_id": song_id})
+    return MeOut.from_user(user).model_copy(
+        update={
+            "start_song_id": song_id,
+            "start_tab": "practice" if start_param == "practice" else None,
+        }
+    )
 
 
 @router.patch("/settings", response_model=MeOut)
@@ -49,6 +55,10 @@ async def post_event(body: EventIn, user: CurrentUser, session: Session) -> Resp
             user.allows_write_to_pm = True
         case "premium_viewed":
             await log_event(session, user, UserEventType.PREMIUM_VIEWED)
+        case "game_start":
+            if body.ref not in set(Game):
+                raise HTTPException(422, "ref must be a game")
+            await log_event(session, user, UserEventType.GAME_START, ref=body.ref)
     session.add(user)
     await session.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

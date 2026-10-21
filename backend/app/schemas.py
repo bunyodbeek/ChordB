@@ -5,17 +5,21 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from chordb_common.config import get_settings
+from chordb_common.practice import is_valid_zone
 from chordb_common.models import (
     Analysis,
     AnalysisSource,
     AnalysisStatus,
     Difficulty,
+    Game,
     NotationKind,
     Payment,
     PaymentStatus,
+    PracticeStep,
     PremiumEventKind,
     Quality,
     Song,
+    UnlockMode,
     User,
 )
 
@@ -23,6 +27,7 @@ from chordb_common.models import (
 class SettingsOut(BaseModel):
     notation: NotationKind | None
     notifications_enabled: bool
+    timezone: str | None
 
 
 class MeOut(BaseModel):
@@ -43,6 +48,8 @@ class MeOut(BaseModel):
     is_admin: bool  # may use /api/admin (ADMIN_IDS)
     # Song from a t.me/...?startapp=song_<id> link, to open first.
     start_song_id: int | None = None
+    # Tab from a t.me/...?startapp=practice link (the practice reminder).
+    start_tab: Literal["practice"] | None = None
 
     @classmethod
     def from_user(cls, u: User) -> "MeOut":
@@ -57,7 +64,9 @@ class MeOut(BaseModel):
             is_premium_tg=u.is_premium_tg,
             created_at=u.created_at,
             settings=SettingsOut(
-                notation=u.notation, notifications_enabled=u.notifications_enabled
+                notation=u.notation,
+                notifications_enabled=u.notifications_enabled,
+                timezone=u.timezone,
             ),
             needs_write_access=(
                 not u.can_message
@@ -79,14 +88,27 @@ class SettingsPatch(BaseModel):
 
     notation: NotationKind | None = None
     notifications_enabled: bool | None = None
+    timezone: str | None = Field(default=None, max_length=64)  # IANA, e.g. "Asia/Tashkent"
+
+    @field_validator("timezone")
+    @classmethod
+    def _zone(cls, v: str | None) -> str | None:
+        if v is not None and not is_valid_zone(v):
+            raise ValueError("unknown time zone")
+        return v
 
 
 class EventIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     type: Literal[
-        "tuner_opened", "write_access_requested", "write_access_granted", "premium_viewed"
+        "tuner_opened",
+        "write_access_requested",
+        "write_access_granted",
+        "premium_viewed",
+        "game_start",
     ]
+    ref: str = Field(default="", max_length=32)  # game_start: the game
 
 
 # --- songs ---------------------------------------------------------------------
@@ -517,3 +539,96 @@ class SongLinkOut(BaseModel):
     url: str | None  # None until BOT_USERNAME is set
     opened: int  # distinct users who came through the link
     paid: int  # of them, who have had a payment approved
+
+
+# --- practice -------------------------------------------------------------------------
+
+# Server-side sanity limits for game results.
+MAX_SWITCHES_PER_MIN = 60
+EAR_TEST_QUESTIONS = 10
+
+
+class StreakOut(BaseModel):
+    current: int  # as of today: 0 once a missed day can't be frozen
+    best: int
+    freezes_left: int  # for this month
+    last_practice_date: date | None
+
+
+class TodayOut(BaseModel):
+    date: date  # in the user's zone
+    steps: list[PracticeStep]  # all of them, in order
+    steps_done: list[PracticeStep]
+    completed: bool
+    chain: list[ChordModel]  # the chord-switch chain, Am → C → G → F by default
+    streak: StreakOut
+
+
+class StepIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    step: PracticeStep
+
+
+class PersonalBestOut(BaseModel):
+    game: Game
+    chain_key: str
+    value: int
+
+
+class CollectedChord(ChordModel):
+    mode: UnlockMode
+    unlocked_at: datetime
+
+
+class SummaryOut(BaseModel):
+    streak: StreakOut
+    today: TodayOut
+    bests: list[PersonalBestOut]
+    collection: list[CollectedChord]
+    collectible: list[ChordModel]  # the whole collection, in order ("7/24")
+
+
+class ChordSwitchDetails(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    chain: list[ChordModel] = Field(min_length=2, max_length=8)
+    switches: int = Field(ge=0)  # correct chord changes
+    chains: int = Field(ge=0)  # full times round the chain
+    duration_sec: float = Field(ge=10, le=120)
+
+
+class EarAnswer(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    chord: ChordModel  # what was played
+    picked: ChordModel | None  # None = no answer
+    correct: bool
+
+
+class EarTestDetails(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    level: int = Field(ge=1, le=5)  # 1 = major vs minor
+    answers: list[EarAnswer] = Field(min_length=EAR_TEST_QUESTIONS, max_length=EAR_TEST_QUESTIONS)
+
+
+class GameResultIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    game: Game
+    score: int = Field(ge=0)
+    details: dict
+
+
+class GameResultOut(BaseModel):
+    id: int
+    game: Game
+    score: int
+    best: int  # the personal best after this game
+    new_best: bool
+    today: TodayOut
+
+
+class UnlockIn(ChordModel):
+    mode: UnlockMode = UnlockMode.PLAYED

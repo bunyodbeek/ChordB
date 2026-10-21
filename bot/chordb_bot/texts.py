@@ -35,3 +35,13 @@ ADMIN_PANEL = (
     "Admin panel. Telegram Desktop’da ochsangiz, keng oynada qulayroq."
 )
 ADMIN_PANEL_BUTTON = "📊 Admin panel"
+
+PRACTICE_BUTTON = "🎯 Mashqni boshlash"
+
+
+def practice_reminder(first_name: str, streak: int) -> str:
+    keep = f"\n\n🔥 Seriyangiz: {streak} kun — uzib qoʻymang!" if streak > 0 else ""
+    return (
+        f"{escape(first_name)}, bugungi mashq hali qilinmadi 🎸\n"
+        "5 daqiqa: sozlash, akkord almashtirish va quloq testi." + keep
+    )

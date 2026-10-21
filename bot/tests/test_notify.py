@@ -147,3 +147,85 @@ def test_weekly_reminder_uses_notify_tz() -> None:
     assert str(trigger.timezone) == "Asia/Tashkent"
     fire = trigger.get_next_fire_time(None, datetime(2026, 10, 18, 0, 0, tzinfo=UTC))
     assert fire == datetime(2026, 10, 18, 14, 0, tzinfo=UTC)  # 19:00 Tashkent (UTC+5)
+
+
+# --- daily practice reminder ------------------------------------------------------------
+
+from chordb_common.models import PracticeDay, UserEvent, UserEventType  # noqa: E402
+from chordb_common.practice import local_date  # noqa: E402
+
+
+async def practised(sm, user: User, *, at: datetime, days_ago: int = 1) -> None:
+    """A practice step `days_ago` days before `at`, at the same time of day."""
+    async with sm() as s:
+        when = at - timedelta(days=days_ago)
+        s.add(UserEvent(user_id=user.id, type=UserEventType.PRACTICE_STEP,
+                        day=local_date(when, user.timezone), ref="tune", created_at=when))
+        await s.commit()
+
+
+# 20:10 in Tashkent (UTC+5): inside the default 20:00 hour.
+EVENING = datetime(2026, 10, 21, 15, 10, tzinfo=UTC)
+
+
+async def test_practice_reminder_selection(sessionmaker) -> None:
+    due = await make_user(sessionmaker, 300)
+    await practised(sessionmaker, due, at=EVENING)
+
+    done = await make_user(sessionmaker, 301)
+    await practised(sessionmaker, done, at=EVENING)
+    async with sessionmaker() as s:
+        s.add(PracticeDay(user_id=done.id, date=local_date(EVENING, None), steps_done=[], completed=True))
+        await s.commit()
+
+    off = await make_user(sessionmaker, 302, notifications_enabled=False)
+    await practised(sessionmaker, off, at=EVENING)
+    blocked = await make_user(sessionmaker, 303, is_blocked_bot=True)
+    await practised(sessionmaker, blocked, at=EVENING)
+    inactive = await make_user(sessionmaker, 304)
+    await practised(sessionmaker, inactive, at=EVENING, days_ago=20)
+    await make_user(sessionmaker, 305)  # never practised: no daily reminders
+
+    bot = FakeBot()
+    notifier = Notifier(bot, sessionmaker, rate=1000)
+    counts = await jobs.practice_reminder(notifier, EVENING)
+    assert [c for c, _ in bot.sent] == [300]
+    assert counts == Counter({NotificationStatus.SENT: 1})
+    assert "bugungi mashq" in bot.sent[0][1]
+
+    # Max one a day, even though the job runs again within the hour.
+    assert await jobs.practice_reminder(notifier, EVENING + timedelta(minutes=15)) == Counter()
+    # The next evening is a new day: 301's practice was done yesterday, not today.
+    bot.sent.clear()
+    await jobs.practice_reminder(notifier, EVENING + timedelta(days=1))
+    assert sorted(c for c, _ in bot.sent) == [300, 301]
+
+
+async def test_practice_reminder_at_the_usual_hour(sessionmaker) -> None:
+    u = await make_user(sessionmaker, 310)
+    morning = datetime(2026, 10, 21, 3, 20, tzinfo=UTC)  # 08:20 Tashkent
+    for d in (1, 2, 3):
+        await practised(sessionmaker, u, at=morning, days_ago=d)
+
+    notifier = Notifier(FakeBot(), sessionmaker, rate=1000)
+    assert await jobs.practice_reminder(notifier, EVENING) == Counter()  # not at 20:00
+    assert await jobs.practice_reminder(notifier, morning) == Counter({NotificationStatus.SENT: 1})
+
+
+async def test_practice_reminder_uses_the_users_timezone(sessionmaker) -> None:
+    u = await make_user(sessionmaker, 320, timezone="Europe/London")
+    await practised(sessionmaker, u, at=EVENING)  # 16:10 London: their usual hour is 16
+    notifier = Notifier(FakeBot(), sessionmaker, rate=1000)
+    assert await jobs.practice_reminder(notifier, EVENING) == Counter({NotificationStatus.SENT: 1})
+
+
+def test_practice_link() -> None:
+    settings = jobs.get_settings()
+    old = settings.bot_username, settings.webapp_short_name
+    try:
+        settings.bot_username, settings.webapp_short_name = "ChordBbot", "app"
+        assert jobs.practice_link() == "https://t.me/ChordBbot/app?startapp=practice"
+        settings.bot_username = ""
+        assert jobs.practice_link() == "https://chordb.test/?startapp=practice"
+    finally:
+        settings.bot_username, settings.webapp_short_name = old

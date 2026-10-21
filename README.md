@@ -306,6 +306,22 @@ sh deploy/ytdlp-update.sh        # a rebuild resets yt-dlp to uv.lock's version
 (cd webapp && npm ci && npm run build)
 ```
 
+## Daily practice
+
+`common/chordb_common/practice.py` holds the rules, shared by the API and the bot. A practice day is a calendar day in the user's time zone (`users.timezone`, set by the webapp through `PATCH /api/me/settings {"timezone"}`; `NOTIFY_TZ` until then). It has three steps: `tune`, `chord_switch` and `ear_test`. Doing all three completes the day. Completed days in a row are the streak, counted once per day. A missed day is covered by a freeze: one per month (premium: three), refilled each month and not carried over.
+
+| Method | Path | |
+|---|---|---|
+| GET | `/api/practice/today` | `{date, steps, steps_done, completed, chain, streak}`. `chain` is the chord-switch chain (Am → C → G → F). |
+| POST | `/api/practice/step` | `{"step": "tune" \| "chord_switch" \| "ear_test"}`. Repeats are ignored. |
+| GET | `/api/practice/summary` | `{streak, today, bests[], collection[], collectible[]}`. `collectible` is the 24-chord collection, in order. |
+| POST | `/api/games/result` | `{game: "chord_switch" \| "ear_test", score, details}`. **201** `{best, new_best, today}`, and it also marks the game's step. Impossible results get **422** `invalid_result`: more than 60 switches a minute, a score that isn't `switches` or the number of correct answers, or not exactly 10 ear-test answers. |
+| POST | `/api/collection/unlock` | `{root, quality, mode: "played" \| "listened"}`. Idempotent; returns the collection. |
+
+`POST /api/me/events` also takes `{"type": "game_start", "ref": "<game>"}`. Practice steps, game finishes and chord unlocks are logged to `user_events` too. A `t.me/...?startapp=practice` link sets `/api/me`'s `start_tab` to `practice`.
+
+**Reminder (bot).** Every 15 minutes the bot checks users who did a practice step in the last 14 days, have notifications on and haven't blocked the bot. Someone whose practice for today isn't done gets one reminder at the local hour they usually practise (the most common hour of their steps in the last 30 days, default 20:00). It goes out at most once per local day, with a button to the Mashq tab (`startapp=practice`; set `BOT_USERNAME` for a t.me link).
+
 ## Admin panel and premium
 
 The admin panel is a page of the same webapp at `/admin` (`webapp/src/panel/`, designs in `docs/design/`). It uses the same initData login, so it opens inside Telegram: send `/admin` to the bot (it answers admins only) and open it in **Telegram Desktop**, where the panel goes full-window. Admins also find it at the bottom of the Profile tab. Pages:

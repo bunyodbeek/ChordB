@@ -49,7 +49,7 @@ async def test_me_upserts(client: httpx.AsyncClient) -> None:
     assert me["telegram_id"] == 42
     assert me["username"] == "b1"
     assert me["is_premium_tg"] is True
-    assert me["settings"] == {"notation": None, "notifications_enabled": True}
+    assert me["settings"] == {"notation": None, "notifications_enabled": True, "timezone": None}
     assert me["needs_write_access"] is True
 
     # Second request updates profile, same row.
@@ -67,10 +67,10 @@ async def test_patch_settings(client: httpx.AsyncClient) -> None:
     r = await client.patch(
         "/api/me/settings", headers=auth(), json={"notifications_enabled": False}
     )
-    assert r.json()["settings"] == {"notation": "solfege", "notifications_enabled": False}
+    assert r.json()["settings"] == {"notation": "solfege", "notifications_enabled": False, "timezone": None}
 
     r = await client.get("/api/me", headers=auth())
-    assert r.json()["settings"] == {"notation": "solfege", "notifications_enabled": False}
+    assert r.json()["settings"] == {"notation": "solfege", "notifications_enabled": False, "timezone": None}
 
 
 @pytest.mark.parametrize(
