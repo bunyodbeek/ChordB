@@ -9,15 +9,104 @@
     <title>ChordB</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Not render-blocking: the splash must not wait for fonts (it falls back to system-ui). -->
     <link
       href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@500;600&display=swap"
       rel="stylesheet"
+      media="print"
+      onload="this.media = 'all'"
     />
-    <!-- Must load before the app: defines window.Telegram.WebApp. -->
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <noscript>
+      <link
+        href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@500;600&display=swap"
+        rel="stylesheet"
+      />
+    </noscript>
+    <!-- Launch splash: docs/design/chordb-splash.html (SVG, keyframes and timings as is).
+         It lives here, not in React, so it shows before the app's JS loads and only on a
+         cold start. src/splash.ts fades it out once /api/me has answered. -->
+    <style>
+      :root {
+        --splash-bg: #151515;
+        --brand-green: #20FA9B;
+        --brand-white: #FFFFFF;
+      }
+      .splash {
+        position: fixed; inset: 0; z-index: 1000;
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px;
+        background: var(--splash-bg);
+        transition: opacity 320ms ease, visibility 0s linear 320ms;
+      }
+      .splash.is-done { opacity: 0; visibility: hidden; }
+
+      .splash__logo { width: 112px; height: 112px; overflow: visible;
+        animation: logo-in 520ms cubic-bezier(.2,.8,.2,1) both; }
+      .splash__stripe { transform-box: fill-box; animation: stripe-in 460ms cubic-bezier(.2,.9,.25,1) both; }
+      .splash__stripe--1 { animation-delay: 80ms; }
+      .splash__stripe--2 { animation-delay: 170ms; }
+      .splash__stripe--3 { animation-delay: 260ms; }
+      .splash__body { transform-box: fill-box; animation: body-in 520ms cubic-bezier(.2,.8,.2,1) 300ms both; }
+      /* after assembly: the stripes "ring" like plucked strings */
+      .splash__strings { animation: pluck 360ms ease-out 820ms 1; transform-box: fill-box; }
+
+      .splash__word {
+        font-family: 'Bricolage Grotesque', 'Inter', system-ui, sans-serif; font-weight: 800;
+        font-size: 30px; letter-spacing: -0.03em; color: var(--brand-white);
+        animation: word-in 420ms ease-out 640ms both;
+      }
+      .splash__word b { color: var(--brand-green); font-weight: 800; }
+
+      @keyframes logo-in   { from { transform: scale(.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+      @keyframes stripe-in { from { transform: translateX(-115%); } to { transform: translateX(0); } }
+      @keyframes body-in   { from { transform: translateY(28%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+      @keyframes word-in   { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+      @keyframes pluck {
+        0% { transform: translateX(0); } 20% { transform: translateX(2.2px); } 40% { transform: translateX(-1.6px); }
+        60% { transform: translateX(1px); } 80% { transform: translateX(-.5px); } 100% { transform: translateX(0); }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .splash__logo, .splash__stripe, .splash__body, .splash__strings, .splash__word { animation: none; }
+        .splash { transition: opacity 200ms ease, visibility 0s linear 200ms; }
+      }
+    </style>
   </head>
   <body>
+    <div class="splash" id="splash" role="img" aria-label="ChordB yuklanmoqda">
+      <svg class="splash__logo" viewBox="0 0 100 100" aria-hidden="true">
+        <defs>
+          <clipPath id="chordb-c"><path d="M85.36 85.36A50 50 0 1 1 85.36 14.64L64.14 35.86A20 20 0 1 0 64.14 64.14Z"/></clipPath>
+        </defs>
+        <g clip-path="url(#chordb-c)">
+          <g class="splash__strings">
+            <rect class="splash__stripe splash__stripe--1" x="0" y="0"    width="100" height="11.9" fill="#20FA9B"/>
+            <rect class="splash__stripe splash__stripe--2" x="0" y="17.7" width="100" height="11.7" fill="#20FA9B"/>
+            <rect class="splash__stripe splash__stripe--3" x="0" y="36.2" width="100" height="10.9" fill="#20FA9B"/>
+          </g>
+          <rect class="splash__body" x="0" y="52.9" width="100" height="47.1" fill="#FFFFFF"/>
+        </g>
+      </svg>
+      <div class="splash__word">Chord<b>B</b></div>
+    </div>
     <div id="root"></div>
+
+    <!-- After the splash markup so it paints first; still before the app (defines WebApp). -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script>
+      // As early as possible: tell Telegram we're alive, take the full height, and paint
+      // its header and background like the splash so nothing flashes white.
+      (function () {
+        window.__splashShownAt = performance.now();
+        var tg = window.Telegram && window.Telegram.WebApp;
+        if (!tg) return;
+        tg.ready();
+        tg.expand();
+        if (tg.isVersionAtLeast && tg.isVersionAtLeast("6.1")) {
+          tg.setHeaderColor("#151515");
+          tg.setBackgroundColor("#151515");
+        }
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -12,6 +12,7 @@ interface TelegramWebApp {
   colorScheme: "light" | "dark";
   ready(): void;
   expand(): void;
+  initDataUnsafe?: { start_param?: string };
   isVersionAtLeast(version: string): boolean;
   disableVerticalSwipes?(): void;
   requestFullscreen?(): void;
@@ -49,6 +50,15 @@ export function getInitData(): string {
 
 export const inTelegram = Boolean(tg?.initData);
 
+/** The startapp parameter: from Telegram for t.me links, else ?startapp= in the URL. */
+export function startParam(): string | null {
+  return (
+    tg?.initDataUnsafe?.start_param ||
+    new URLSearchParams(location.search).get("startapp") ||
+    null
+  );
+}
+
 export function initTelegram(): void {
   // The app has its own palette (styles.css); only light vs dark follows Telegram,
   // or the system in a plain browser.
@@ -57,18 +67,26 @@ export function initTelegram(): void {
     : window.matchMedia("(prefers-color-scheme: dark)").matches;
   document.documentElement.dataset.theme = dark ? "dark" : "light";
 
+  // ready() and expand() already ran in index.html, with the splash's colours.
   if (!tg) return;
-  tg.ready();
-  tg.expand();
   // Stop a downward swipe on the tuner from closing the app (Bot API 7.7+).
   if (tg.isVersionAtLeast("7.7")) tg.disableVerticalSwipes?.();
-  // Blend Telegram's header and bottom bar into the page (keep in sync with --bg).
-  const bg = dark ? "#141416" : "#f4f5f2";
+}
+
+/**
+ * Telegram's header, background and bottom bar in the app's colours (the white app bar
+ * and tab bar, the page background); splash.ts calls it as the splash fades.
+ */
+export function setAppChrome(): void {
+  if (!tg) return;
+  const dark = document.documentElement.dataset.theme === "dark";
+  const bar = dark ? "#1e1e21" : "#ffffff"; // keep in sync with --card
+  const bg = dark ? "#141416" : "#f4f5f2"; // and --bg
   if (tg.isVersionAtLeast("6.1")) {
-    tg.setHeaderColor?.(bg);
+    tg.setHeaderColor?.(bar);
     tg.setBackgroundColor?.(bg);
   }
-  if (tg.isVersionAtLeast("7.10")) tg.setBottomBarColor?.(bg);
+  if (tg.isVersionAtLeast("7.10")) tg.setBottomBarColor?.(bar);
 }
 
 /** requestWriteAccess exists from Bot API 6.9, and only means something inside Telegram. */

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { api, type Me } from "../api";
 import { ChordEditor } from "../components/admin/ChordEditor";
 import { navigate, parseHash, useHash } from "../router";
+import { hideSplash } from "../splash";
 import { getInitData, requestFullscreen } from "../telegram";
 import { t } from "../texts";
 import { Dashboard } from "./Dashboard";
@@ -21,10 +22,19 @@ export default function Panel() {
 
   useEffect(() => {
     requestFullscreen();
-    if (!getInitData()) return setMe("denied");
+    if (!getInitData()) {
+      void hideSplash().then(() => setMe("denied"));
+      return;
+    }
     api.me().then(
-      (m) => setMe(m.is_admin ? m : "denied"),
-      () => setMe("failed"),
+      async (m) => {
+        await hideSplash();
+        setMe(m.is_admin ? m : "denied");
+      },
+      async () => {
+        await hideSplash();
+        setMe("failed");
+      },
     );
   }, []);
 

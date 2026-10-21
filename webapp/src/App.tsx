@@ -8,7 +8,9 @@ import { Profile } from "./components/Profile";
 import { Songs, openSongOnLaunch } from "./components/Songs";
 import { TabBar, type Tab } from "./components/TabBar";
 import { Tuner } from "./components/Tuner";
-import { getInitData } from "./telegram";
+import { hideSplash } from "./splash";
+import { parseStart } from "./startLink";
+import { getInitData, startParam } from "./telegram";
 import { t } from "./texts";
 import { loadPreset, savePreset, type PresetId } from "./tuning";
 
@@ -36,21 +38,35 @@ export default function App() {
     [changePreset],
   );
 
+  // On a cold start the splash (index.html) stays up until this has answered; the app
+  // renders as it fades.
   const fetchMe = useCallback(() => {
     if (!getInitData()) {
-      setLoad({ state: "error", message: t.openInTelegram, canRetry: false });
+      void hideSplash().then(() =>
+        setLoad({ state: "error", message: t.openInTelegram, canRetry: false }),
+      );
       return;
     }
     setLoad({ state: "loading" });
     api.me().then(
-      (me) => {
-        if (me.start_song_id !== null) {
-          openSongOnLaunch(me.start_song_id);
+      async (me) => {
+        // A t.me/…?startapp= link: the server reads it from initData; a Web App button
+        // (e.g. the practice reminder without BOT_USERNAME) passes it in the URL instead.
+        const link = parseStart(startParam());
+        const songId = me.start_song_id ?? link.songId;
+        if (songId !== null) {
+          openSongOnLaunch(songId);
           setTab("songs");
+        } else if (me.start_tab === "practice" || link.practice) {
+          setTab("practice");
         }
+        await hideSplash();
         setLoad({ state: "ready", me });
       },
-      () => setLoad({ state: "error", message: t.loadFailed, canRetry: true }),
+      async () => {
+        await hideSplash();
+        setLoad({ state: "error", message: t.loadFailed, canRetry: true });
+      },
     );
   }, []);
 
@@ -65,6 +81,7 @@ export default function App() {
   );
 
   if (load.state === "loading") {
+    // Under the splash on a cold start; on a retry, a plain line.
     return <div className="center muted">{t.loading}</div>;
   }
   if (load.state === "error") {

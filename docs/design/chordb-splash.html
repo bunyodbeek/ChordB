@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ChordB — Splash</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,800&display=swap">
+<style>
+  :root {
+    --splash-bg: #151515;
+    --brand-green: #20FA9B;
+    --brand-white: #FFFFFF;
+    --app-bg: #F4F5F2;
+  }
+  html, body { margin: 0; height: 100%; background: var(--app-bg); }
+
+  /* ---------- Splash ---------- */
+  .splash {
+    position: fixed; inset: 0; z-index: 1000;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px;
+    background: var(--splash-bg);
+    transition: opacity 320ms ease, visibility 0s linear 320ms;
+  }
+  .splash.is-done { opacity: 0; visibility: hidden; }
+
+  .splash__logo { width: 112px; height: 112px; overflow: visible;
+    animation: logo-in 520ms cubic-bezier(.2,.8,.2,1) both; }
+  .splash__stripe { transform-box: fill-box; animation: stripe-in 460ms cubic-bezier(.2,.9,.25,1) both; }
+  .splash__stripe--1 { animation-delay: 80ms; }
+  .splash__stripe--2 { animation-delay: 170ms; }
+  .splash__stripe--3 { animation-delay: 260ms; }
+  .splash__body { transform-box: fill-box; animation: body-in 520ms cubic-bezier(.2,.8,.2,1) 300ms both; }
+  /* after assembly: the stripes "ring" like plucked strings */
+  .splash__strings { animation: pluck 360ms ease-out 820ms 1; transform-box: fill-box; }
+
+  .splash__word {
+    font-family: 'Bricolage Grotesque', 'Inter', system-ui, sans-serif; font-weight: 800;
+    font-size: 30px; letter-spacing: -0.03em; color: var(--brand-white);
+    animation: word-in 420ms ease-out 640ms both;
+  }
+  .splash__word b { color: var(--brand-green); font-weight: 800; }
+
+  @keyframes logo-in   { from { transform: scale(.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  @keyframes stripe-in { from { transform: translateX(-115%); } to { transform: translateX(0); } }
+  @keyframes body-in   { from { transform: translateY(28%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  @keyframes word-in   { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  @keyframes pluck {
+    0% { transform: translateX(0); } 20% { transform: translateX(2.2px); } 40% { transform: translateX(-1.6px); }
+    60% { transform: translateX(1px); } 80% { transform: translateX(-.5px); } 100% { transform: translateX(0); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .splash__logo, .splash__stripe, .splash__body, .splash__strings, .splash__word { animation: none; }
+    .splash { transition: opacity 200ms ease, visibility 0s linear 200ms; }
+  }
+
+  /* ---------- demo only ---------- */
+  .demo { font-family: system-ui, sans-serif; color: #15171A; padding: 24px 16px; }
+  .demo button { height: 44px; padding: 0 16px; border-radius: 12px; border: 0; background: #2F5BFF; color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<div class="splash" id="splash" role="img" aria-label="ChordB yuklanmoqda">
+  <svg class="splash__logo" viewBox="0 0 100 100" aria-hidden="true">
+    <defs>
+      <clipPath id="chordb-c"><path d="M85.36 85.36A50 50 0 1 1 85.36 14.64L64.14 35.86A20 20 0 1 0 64.14 64.14Z"/></clipPath>
+    </defs>
+    <g clip-path="url(#chordb-c)">
+      <g class="splash__strings">
+        <rect class="splash__stripe splash__stripe--1" x="0" y="0"    width="100" height="11.9" fill="#20FA9B"/>
+        <rect class="splash__stripe splash__stripe--2" x="0" y="17.7" width="100" height="11.7" fill="#20FA9B"/>
+        <rect class="splash__stripe splash__stripe--3" x="0" y="36.2" width="100" height="10.9" fill="#20FA9B"/>
+      </g>
+      <rect class="splash__body" x="0" y="52.9" width="100" height="47.1" fill="#FFFFFF"/>
+    </g>
+  </svg>
+  <div class="splash__word">Chord<b>B</b></div>
+</div>
+
+<div class="demo">
+  <p>Bu yerda Sozlash sahifasi ochiladi.</p>
+  <button type="button" id="replay">Animatsiyani qayta koʻrish</button>
+</div>
+
+<script>
+  // Show the splash at least MIN_MS, and until the app is ready (auth + /api/me).
+  const MIN_MS = 1300;
+  function runSplash(appReady) {
+    const el = document.getElementById('splash');
+    el.classList.remove('is-done');
+    // restart CSS animations
+    el.querySelectorAll('*').forEach(n => { n.style.animation = 'none'; n.getBoundingClientRect(); n.style.animation = ''; });
+    const started = performance.now();
+    return Promise.resolve(appReady).then(() => {
+      const wait = Math.max(0, MIN_MS - (performance.now() - started));
+      return new Promise(r => setTimeout(r, wait));
+    }).then(() => { el.classList.add('is-done'); /* then route to /tuner */ });
+  }
+  // demo: pretend the app needs 600 ms to load
+  const fakeReady = () => new Promise(r => setTimeout(r, 600));
+  runSplash(fakeReady());
+  document.getElementById('replay').addEventListener('click', () => runSplash(fakeReady()));
+</script>
+</body>
+</html>

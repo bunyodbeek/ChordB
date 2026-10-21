@@ -23,6 +23,7 @@ export interface Me {
   premium_until: string | null; // null with is_premium = no end date
   is_admin: boolean;
   start_song_id: number | null; // opened through a t.me/…?startapp=song_<id> link
+  start_tab: "practice" | null; // opened through a t.me/…?startapp=practice link
 }
 
 /** Canonical chord as stored by the backend; render with formatChord. */
