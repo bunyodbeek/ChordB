@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { api } from "../api";
+import { saveTuningResidual } from "../practice";
 import type { NotationKind } from "../notation";
 import { centsOff } from "../pitch";
 import { canRequestWriteAccess, haptic, requestWriteAccess } from "../telegram";
@@ -44,6 +45,8 @@ export function Tuner({
   const [selected, setSelected] = useState<number | null>(null); // string number, null = auto
   const [tuned, setTuned] = useState<ReadonlySet<number>>(new Set());
   const inTuneSince = useRef<{ string: number; at: number } | null>(null);
+  const tunedCents = useRef<number[]>([]); // how far off each string was when it counted as tuned
+  const stepSent = useRef(false);
   const lastTarget = useRef<GuitarString | null>(null);
   const tuning = presetById(preset);
   const strings = tuning.strings;
@@ -54,6 +57,7 @@ export function Tuner({
     setSelected(null);
     lastTarget.current = null;
     inTuneSince.current = null;
+    tunedCents.current = [];
   }, [preset]);
 
   const locked = selected !== null ? strings.find((s) => s.number === selected)! : null;
@@ -75,6 +79,7 @@ export function Tuner({
       inTuneSince.current = { string: n, at: now };
     } else if (now - inTuneSince.current.at >= HOLD_MS && !tuned.has(n)) {
       haptic.success();
+      if (cents !== null) tunedCents.current.push(cents);
       setTuned((prev) => new Set(prev).add(n));
     }
   }, [freq, inTune, target, tuned]);
@@ -82,6 +87,18 @@ export function Tuner({
   useEffect(() => {
     if (status === "listening") void api.event("tuner_opened");
   }, [status]);
+
+  // Every string tuned: today's "tune" step is done, and chord recognition learns how
+  // far this guitar sits from A440.
+  useEffect(() => {
+    if (tuned.size !== strings.length || stepSent.current) return;
+    stepSent.current = true;
+    const c = tunedCents.current;
+    if (c.length) saveTuningResidual(c.reduce((a, b) => a + b, 0) / c.length);
+    api.practice.step("tune").catch(() => {
+      stepSent.current = false;
+    });
+  }, [tuned.size, strings.length]);
 
   // Ask to allow bot messages right after the first string is tuned: a good moment,
   // and the backend only asks once (needs_write_access).

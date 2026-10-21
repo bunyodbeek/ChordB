@@ -175,3 +175,25 @@ export function isEasyShape(chord: Chord): boolean {
   const key = openKey(chord);
   return key !== null && key in OPEN;
 }
+
+/**
+ * Finger numbers (1 = index … 4 = pinky) per string, null where no finger presses.
+ * A barre takes finger 1; the other notes get the next fingers, lower frets first and,
+ * on the same fret, the lower string first. That reproduces the usual fingerings of the
+ * open and barre shapes (Am: 2 3 1, G: 2 1 3, F: 1 3 4 2 1 1).
+ */
+export function fingering(frets: Frets): (number | null)[] {
+  const l = diagramLayout(frets);
+  const out: (number | null)[] = frets.map(() => null);
+  let next = 1;
+  if (l.barre) {
+    for (let i = l.barre.from; i <= l.barre.to; i++) if (frets[i] === l.barre.row + l.base - 1) out[i] = 1;
+    next = 2;
+  }
+  const rest = frets
+    .map((f, i) => ({ f, i }))
+    .filter(({ f, i }) => f > 0 && out[i] === null)
+    .sort((a, b) => a.f - b.f || a.i - b.i);
+  for (const { i } of rest) out[i] = Math.min(4, next++);
+  return out;
+}

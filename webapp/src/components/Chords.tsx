@@ -5,6 +5,7 @@ import { noteName, type NotationKind } from "../notation";
 import { haptic } from "../telegram";
 import { t } from "../texts";
 import { ChordCard } from "./ChordCard";
+import { ChordTrySheet } from "./practice/ChordTrySheet";
 import { NotationToggle } from "./NotationToggle";
 import { Screen } from "./Screen";
 import { SoundStatus } from "./SoundStatus";
@@ -18,7 +19,9 @@ interface Props {
 
 export function Chords({ notation, onNotationChange }: Props) {
   const [root, setRoot] = useState(9); // A: a friendly place to start
+  const [trying, setTrying] = useState<number | null>(null); // "Sinab koʻrish" on this chord
   const flat = prefersFlat(root);
+  const chords = QUALITIES.map((quality) => ({ root, quality, flat }));
 
   return (
     <Screen
@@ -46,10 +49,19 @@ export function Chords({ notation, onNotationChange }: Props) {
       </div>
 
       <div className="chord-grid scroll-y">
-        {QUALITIES.map((quality) => (
-          <ChordCard key={quality} chord={{ root, quality, flat }} notation={notation} />
+        {chords.map((chord, i) => (
+          <ChordCard key={chord.quality} chord={chord} notation={notation} onOpen={() => setTrying(i)} />
         ))}
       </div>
+      {trying !== null && (
+        <ChordTrySheet
+          chords={chords}
+          start={trying}
+          caption={(i) => `${noteName(root, notation, flat)} · ${i + 1} / ${chords.length}`}
+          notation={notation}
+          onClose={() => setTrying(null)}
+        />
+      )}
     </Screen>
   );
 }

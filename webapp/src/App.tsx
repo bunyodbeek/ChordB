@@ -62,6 +62,14 @@ export default function App() {
         }
         await hideSplash();
         setLoad({ state: "ready", me });
+        // Practice days follow the phone's midnight; tell the server its zone once.
+        const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (zone && me.settings.timezone !== zone) {
+          api.patchSettings({ timezone: zone }).then(
+            (next) => setLoad((l) => (l.state === "ready" ? { ...l, me: next } : l)),
+            () => {},
+          );
+        }
       },
       async () => {
         await hideSplash();
@@ -133,7 +141,13 @@ export default function App() {
             onNotationChange={(notation) => updateSettings({ notation })}
           />
         )}
-        {tab === "practice" && <Practice />}
+        {tab === "practice" && (
+          <Practice
+            notation={me.settings.notation}
+            onFullscreen={setFullscreen}
+            onTune={() => setTab("tuner")}
+          />
+        )}
         {tab === "songs" && (
           <Songs
             notation={me.settings.notation}

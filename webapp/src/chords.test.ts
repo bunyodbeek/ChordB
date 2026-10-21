@@ -5,6 +5,7 @@ import {
   QUALITIES,
   chordTones,
   diagramLayout,
+  fingering,
   soundedPcs,
   spelled,
   transpose,
@@ -117,5 +118,21 @@ describe("diagram layout (barre chords and enharmonics)", () => {
     expect(voicing(parseChord(flat))).toEqual(voicing(parseChord(sharp)));
     expect(formatChord(parseChord(flat), "letter")).toBe(flat);
     expect(formatChord(parseChord(sharp), "letter")).toBe(sharp);
+  });
+});
+
+describe("fingering", () => {
+  const fingers = (name: string) => fingering(voicing(parseChord(name)).frets);
+
+  it.each([
+    // the game-chord-switch.reference.html shapes
+    ["Am", [null, null, 2, 3, 1, null]],
+    ["C", [null, 3, 2, null, 1, null]],
+    ["G", [2, 1, null, null, null, 3]],
+    ["F", [1, 3, 4, 2, 1, 1]],
+    ["Em", [null, 1, 2, null, null, null]], // 2-3 is taught too; 1-2 is as common
+    ["Bbm", [null, 1, 3, 4, 2, 1]],
+  ])("%s", (name, want) => {
+    expect(fingers(name)).toEqual(want);
   });
 });

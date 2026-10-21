@@ -5,6 +5,7 @@ import { getInitData } from "./telegram";
 export interface Settings {
   notation: NotationKind | null; // null until the user picks one
   notifications_enabled: boolean;
+  timezone: string | null; // IANA; practice days are counted in it
 }
 
 export interface Me {
@@ -91,7 +92,51 @@ export type EventType =
   | "tuner_opened"
   | "write_access_requested"
   | "write_access_granted"
-  | "premium_viewed";
+  | "premium_viewed"
+  | "game_start";
+
+// --- daily practice (/api/practice, /api/games, /api/collection) ---
+
+export type PracticeStep = "tune" | "chord_switch" | "ear_test";
+export type GameId = "chord_switch" | "ear_test";
+
+export interface Streak {
+  current: number;
+  best: number;
+  freezes_left: number;
+  last_practice_date: string | null;
+}
+
+export interface PracticeToday {
+  date: string;
+  steps: PracticeStep[];
+  steps_done: PracticeStep[];
+  completed: boolean;
+  chain: ChordJson[];
+  streak: Streak;
+}
+
+export interface CollectedChord extends ChordJson {
+  mode: "played" | "listened";
+  unlocked_at: string;
+}
+
+export interface PracticeSummary {
+  streak: Streak;
+  today: PracticeToday;
+  bests: { game: GameId; chain_key: string; value: number }[];
+  collection: CollectedChord[];
+  collectible: ChordJson[];
+}
+
+export interface GameResultOut {
+  id: number;
+  game: GameId;
+  score: number;
+  best: number;
+  new_best: boolean;
+  today: PracticeToday;
+}
 
 // --- premium payments (/api/payments) ---
 
@@ -345,7 +390,8 @@ export const api = {
   me: () => request<Me>("GET", "/me"),
   patchSettings: (patch: Partial<Settings>) => request<Me>("PATCH", "/me/settings", patch),
   // Analytics only: never let a failed event break the UI.
-  event: (type: EventType) => request<void>("POST", "/me/events", { type }).catch(() => {}),
+  event: (type: EventType, ref = "") =>
+    request<void>("POST", "/me/events", ref ? { type, ref } : { type }).catch(() => {}),
   songs: (filters: SongFilters, signal?: AbortSignal) =>
     request<SongsResponse>("GET", `/songs${query(filters)}`, undefined, signal),
   song: (id: number) => request<SongDetail>("GET", `/songs/${id}`),
@@ -360,6 +406,16 @@ export const api = {
       upload<AnalysisDetail>("/analyze", file, onProgress),
     get: (id: number) => request<AnalysisDetail>("GET", `/analyze/${id}`),
     history: () => request<AnalysisHistory>("GET", "/analyze/history"),
+  },
+
+  practice: {
+    today: () => request<PracticeToday>("GET", "/practice/today"),
+    summary: () => request<PracticeSummary>("GET", "/practice/summary"),
+    step: (step: PracticeStep) => request<PracticeToday>("POST", "/practice/step", { step }),
+    result: (game: GameId, score: number, details: unknown) =>
+      request<GameResultOut>("POST", "/games/result", { game, score, details }),
+    unlock: (chord: ChordJson, mode: "played" | "listened" = "played") =>
+      request<CollectedChord[]>("POST", "/collection/unlock", { ...chord, mode }),
   },
 
   payments: {

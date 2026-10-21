@@ -17,6 +17,7 @@ interface TelegramWebApp {
   disableVerticalSwipes?(): void;
   requestFullscreen?(): void;
   openLink?(url: string): void;
+  openTelegramLink?(url: string): void;
   showConfirm?(message: string, callback: (ok: boolean) => void): void;
   setHeaderColor?(color: string): void;
   setBackgroundColor?(color: string): void;
@@ -154,7 +155,16 @@ export async function copyText(text: string): Promise<boolean> {
   }
 }
 
+/** Share a text and link: Telegram's own share sheet inside Telegram, else the system's. */
+export function share(text: string, url = location.origin): void {
+  const tme = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
+  if (inTelegram && tg?.openTelegramLink) tg.openTelegramLink(tme);
+  else if (navigator.share) void navigator.share({ text, url }).catch(() => {});
+  else openLink(tme);
+}
+
 export const haptic = {
   tap: () => tg?.HapticFeedback?.selectionChanged(),
   success: () => tg?.HapticFeedback?.notificationOccurred("success"),
+  error: () => tg?.HapticFeedback?.notificationOccurred("error"),
 };
