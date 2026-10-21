@@ -1,5 +1,8 @@
 # Stops the API, webapp dev server, bot and tunnel (wherever they were started from), then local Postgres.
-# Usage:  powershell -ExecutionPolicy Bypass -File stop.ps1
+# Usage:  powershell -ExecutionPolicy Bypass -File stop.ps1 [-KeepPostgres]
+param(
+    [switch]$KeepPostgres  # start.ps1 uses this to restart everything else cleanly
+)
 
 # --- API, webapp and bot ------------------------------------------------------
 $patterns = @{
@@ -29,6 +32,7 @@ foreach ($name in $patterns.Keys) {
 }
 
 # --- Postgres -----------------------------------------------------------------
+if ($KeepPostgres) { return }
 $pgHome = Join-Path $env:LOCALAPPDATA 'chordb-pg'
 $pgCtl  = Join-Path $pgHome 'venv\Lib\site-packages\pgserver\pginstall\bin\pg_ctl.exe'
 $pgData = Join-Path $pgHome 'data'
