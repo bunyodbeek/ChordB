@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<title>ChordB — Qoʻshiqlar</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&amp;family=IBM+Plex+Mono:wght@500;600&amp;display=swap">
+<style>
+body{margin:0;background:#F4F5F2}
+a{color:#2F5BFF}a:hover{color:#1F3FCC}
+button{font-family:inherit;cursor:pointer}
+input::placeholder{color:#6B7078}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F2; color: #15171A; font-family: 'Bricolage Grotesque', sans-serif; display: flex; flex-direction: column">
+  <header style="flex: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 80px; box-sizing: border-box; padding: 0 16px; background: #FFFFFF; border-bottom: 1px solid #E3E5E0">
+    <h1 style="margin: 0; font-weight: 800; font-size: 26px; letter-spacing: -0.03em">Qoʻshiqlar</h1>
+  </header>
+  <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 14px; padding: 14px 16px 0; overflow: hidden">
+
+    <div style="position: relative">
+      <label for="qs" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Qoʻshiq qidirish</label>
+      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5B6068" stroke-width="2" stroke-linecap="round" style="position: absolute; left: 14px; top: 14px"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>
+      <input id="qs" type="search" placeholder="Qoʻshiq yoki ijrochi" style="width: 100%; height: 46px; box-sizing: border-box; padding: 0 14px 0 42px; border-radius: 14px; border: 1px solid #DADCD6; background: #FFFFFF; color: #15171A; font-family: inherit; font-size: 15px">
+    </div>
+
+    <div style="display: flex; gap: 8px; flex-wrap: wrap">
+      <button type="button" aria-pressed="true" style="height: 36px; padding: 0 14px; border-radius: 10px; border: 0; background: #15171A; color: #FFFFFF; font-size: 13px; font-weight: 600">Hammasi</button>
+      <button type="button" aria-pressed="false" style="height: 36px; padding: 0 14px; border-radius: 10px; border: 1px solid #DADCD6; background: #FFFFFF; color: #15171A; font-size: 13px; font-weight: 600">Oson</button>
+      <button type="button" aria-pressed="false" style="height: 36px; padding: 0 14px; border-radius: 10px; border: 1px solid #DADCD6; background: #FFFFFF; color: #15171A; font-size: 13px; font-weight: 600">Oʻzbekcha</button>
+      <button type="button" aria-pressed="false" style="height: 36px; padding: 0 14px; border-radius: 10px; border: 1px solid #DADCD6; background: #FFFFFF; color: #15171A; font-size: 13px; font-weight: 600">Kaposiz</button>
+    </div>
+
+    <a href="Q2-Pleyer.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 18px; background: {{accent}}; color: #FFFFFF; text-decoration: none">
+      <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+        <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #D6E0FF">Davom ettirish</span>
+        <span style="font-weight: 800; font-size: 18px">[Qoʻshiq nomi]</span>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px">Am · F · C · G</span>
+        <span style="height: 4px; border-radius: 2px; background: rgba(255,255,255,0.3)"><span style="display: block; width: 38%; height: 4px; border-radius: 2px; background: #FFFFFF"></span></span>
+      </span>
+      <span aria-hidden="true" style="width: 48px; height: 48px; flex: none; border-radius: 50%; background: #FFFFFF; color: {{accent}}; display: inline-flex; align-items: center; justify-content: center">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span>
+    </a>
+
+    <div style="display: flex; flex-direction: column; border-radius: 18px; background: #FFFFFF; border: 1px solid #DADCD6; overflow: hidden">
+      <sc-for list="{{songs}}" as="s" hint-placeholder-count="5">
+        <a href="{{s.href}}" style="display: flex; align-items: center; gap: 12px; min-height: 68px; padding: 10px 12px; border-bottom: 1px solid #EEEFEB; color: #15171A; text-decoration: none">
+          <span aria-hidden="true" style="position: relative; width: 52px; height: 52px; flex: none; border-radius: 12px; background: #1D2026; color: #FFFFFF; display: flex; align-items: center; justify-content: center">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            <sc-if value="{{s.locked}}" hint-placeholder-val="{{ false }}">
+              <span style="position: absolute; right: -4px; bottom: -4px; width: 22px; height: 22px; border-radius: 50%; background: #15171A; border: 2px solid #FFFFFF; display: flex; align-items: center; justify-content: center">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></span>
+            </sc-if>
+          </span>
+          <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+            <span style="font-weight: 600; font-size: 16px">{{s.title}}</span>
+            <span style="font-size: 13px; color: #5B6068">{{s.artist}}</span>
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #15171A">{{s.chords}}</span>
+          </span>
+          <span style="flex: none; height: 26px; display: inline-flex; align-items: center; padding: 0 8px; border-radius: 8px; background: {{s.tagBg}}; color: {{s.tagFg}}; font-size: 12px; font-weight: 600">{{s.tag}}</span>
+        </a>
+      </sc-for>
+    </div>
+  </div>
+
+  <nav aria-label="Asosiy menyu" style="flex: none; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; height: 80px; box-sizing: border-box; padding: 8px 8px 12px; border-top: 1px solid #E3E5E0; background: #FFFFFF">
+    <button type="button" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-radius: 14px; border: 0; background: none; color: #5B6068; font-weight: 600; font-size: 11px">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16a8 8 0 0 1 16 0"/><path d="M12 16l4-5"/></svg>Sozlash</button>
+    <button type="button" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-radius: 14px; border: 0; background: none; color: #5B6068; font-weight: 600; font-size: 11px">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="16" rx="2"/><path d="M9.5 4v16M14.5 4v16M5 9h14M5 14h14"/></svg>Akkordlar</button>
+    <button type="button" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-radius: 14px; border: 0; background: none; color: #5B6068; font-weight: 600; font-size: 11px">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.5" fill="currentColor"/></svg>Mashq</button>
+    <button type="button" aria-current="page" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-radius: 14px; border: 0; background: #E3E9FF; color: #1F3FCC; font-weight: 700; font-size: 11px">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6l10-2v12"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="16" r="2"/></svg>Qoʻshiqlar</button>
+    <button type="button" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-radius: 14px; border: 0; background: none; color: #5B6068; font-weight: 600; font-size: 11px">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.2-3.5 4-5 7-5s5.8 1.5 7 5"/></svg>Profil</button>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#2F5BFF","options":["#2F5BFF","#12805C","#15171A"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const easy = { tagBg: '#DDF0E7', tagFg: '#0B5A40', tag: 'Oson' };
+    const mid = { tagBg: '#FFF1DD', tagFg: '#8A4B00', tag: 'Oʻrta' };
+    const prem = { tagBg: '#15171A', tagFg: '#FFFFFF', tag: 'Premium' };
+    return {
+      accent: this.props.accent ?? '#2F5BFF',
+      songs: [
+        Object.assign({ title: '[Qoʻshiq 1]', artist: '[Ijrochi]', chords: 'Am · F · C · G', locked: false, href: 'Q2-Pleyer.dc.html' }, easy),
+        Object.assign({ title: '[Qoʻshiq 2]', artist: '[Ijrochi]', chords: 'Em · C · G · D', locked: false, href: 'Q2-Pleyer.dc.html' }, easy),
+        Object.assign({ title: '[Qoʻshiq 3]', artist: '[Ijrochi]', chords: 'Dm · Am · E · F', locked: false, href: 'Q2-Pleyer.dc.html' }, mid),
+        Object.assign({ title: '[Qoʻshiq 4]', artist: '[Ijrochi]', chords: 'Bm · G · D · A', locked: true, href: '#premium' }, prem),
+        Object.assign({ title: '[Qoʻshiq 5]', artist: '[Ijrochi]', chords: 'F#m · D · A · E', locked: true, href: '#premium' }, prem)
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<title>ChordB — Mashq</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&amp;family=IBM+Plex+Mono:wght@500;600&amp;display=swap">
+<style>
+body{margin:0;background:#F4F5F2}
+a{color:#1F3FCC}a:hover{color:#15309E}
+button{font-family:inherit;cursor:pointer}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F2; color: #15171A; font-family: 'Bricolage Grotesque', sans-serif; display: flex; flex-direction: column; overflow: hidden">
+  <header style="flex: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 80px; box-sizing: border-box; padding: 0 16px; background: #FFFFFF; border-bottom: 1px solid #E3E5E0">
+    <h1 style="margin: 0; font-weight: 800; font-size: 26px; letter-spacing: -0.03em">Mashq</h1>
+    <span aria-label="Seriya: 5 kun" role="img" style="height: 32px; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; border-radius: 10px; background: #FFF1DD; color: #8A4B00; font-weight: 700; font-size: 14px">
+      <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c1 4 6 6 6 12a6 6 0 0 1-12 0c0-3 2-5 3-6 0 2 1 3 2 3 0-3-1-6 1-9z"/></svg>5 kun</span>
+  </header>
+
+  <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; padding: 14px 16px">
+    <a href="G2-Almashtirish.dc.html" style="display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 18px; background: #2F5BFF; color: #FFFFFF; text-decoration: none">
+      <span style="display: flex; align-items: center; justify-content: space-between">
+        <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #D6E0FF">Bugungi mashq · 5 daq</span>
+        <span style="font-size: 12px; font-weight: 600; color: #D6E0FF">1/3</span>
+      </span>
+      <span style="display: flex; flex-direction: column; gap: 4px">
+        <span style="font-weight: 800; font-size: 22px">Am → C → G → F</span>
+        <span style="font-size: 14px; color: #E3E9FF">Sozlash ✓ · Almashtirish · Quloq testi</span>
+      </span>
+      <span style="height: 6px; border-radius: 3px; background: rgba(255,255,255,0.28)"><span style="display: block; width: 33%; height: 6px; border-radius: 3px; background: #FFFFFF"></span></span>
+      <span style="align-self: flex-start; height: 40px; display: inline-flex; align-items: center; padding: 0 16px; border-radius: 12px; background: #FFFFFF; color: #1F3FCC; font-weight: 700; font-size: 14px">Davom etish</span>
+    </a>
+
+    <h2 style="margin: 6px 0 0; font-weight: 700; font-size: 16px">Oʻyinlar</h2>
+    <sc-for list="{{games}}" as="g" hint-placeholder-count="4">
+      <a href="{{g.href}}" style="display: flex; align-items: center; gap: 12px; min-height: 68px; padding: 10px 12px; border-radius: 16px; background: #FFFFFF; border: 1px solid #DADCD6; color: #15171A; text-decoration: none; opacity: {{g.opacity}}">
+        <span aria-hidden="true" style="width: 44px; height: 44px; flex: none; border-radius: 12px; background: {{g.iconBg}}; color: {{g.iconFg}}; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 14px">{{g.icon}}</span>
+        <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+          <span style="font-weight: 700; font-size: 16px">{{g.title}}</span>
+          <span style="font-size: 13px; color: #5B6068">{{g.sub}}</span>
+        </span>
+        <span style="flex: none; font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600; color: {{g.metaFg}}">{{g.meta}}</span>
+      </a>
+    </sc-for>
+
+    <a href="G4-Sinash.dc.html" style="display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 16px; background: #FFFFFF; border: 1px solid #DADCD6; color: #15171A; text-decoration: none">
+      <span style="display: flex; justify-content: space-between; align-items: baseline">
+        <span style="font-weight: 700; font-size: 15px">Akkord kolleksiyasi</span>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #5B6068">7/24</span>
+      </span>
+      <span style="display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px">
+        <sc-for list="{{coll}}" as="c" hint-placeholder-count="8">
+          <span style="height: 28px; border-radius: 7px; background: {{c.bg}}; color: {{c.fg}}; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 11px">{{c.n}}</span>
+        </sc-for>
+      </span>
+    </a>
+  </div>
+
+  <nav aria-label="Asosiy menyu" style="flex: none; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; height: 80px; box-sizing: border-box; padding: 8px 8px 12px; border-top: 1px solid #E3E5E0; background: #FFFFFF">
+    <button type="button" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-radius: 14px; border: 0; background: none; color: #5B6068; font-weight: 600; font-size: 11px">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16a8 8 0 0 1 16 0"/><path d="M12 16l4-5"/></svg>Sozlash</button>
+    <button type="button" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-radius: 14px; border: 0; background: none; color: #5B6068; font-weight: 600; font-size: 11px">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="16" rx="2"/><path d="M9.5 4v16M14.5 4v16M5 9h14M5 14h14"/></svg>Akkordlar</button>
+    <button type="button" aria-current="page" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-radius: 14px; border: 0; background: #E3E9FF; color: #1F3FCC; font-weight: 700; font-size: 11px">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.5" fill="currentColor"/></svg>Mashq</button>
+    <button type="button" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-radius: 14px; border: 0; background: none; color: #5B6068; font-weight: 600; font-size: 11px">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6l10-2v12"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="16" r="2"/></svg>Qoʻshiqlar</button>
+    <button type="button" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-radius: 14px; border: 0; background: none; color: #5B6068; font-weight: 600; font-size: 11px">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.2-3.5 4-5 7-5s5.8 1.5 7 5"/></svg>Profil</button>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const have = { Am: 1, C: 1, G: 1, Em: 1, D: 1, E: 1, A: 1 };
+    const all = ['Am', 'C', 'G', 'Em', 'D', 'E', 'A', 'F', 'Dm', 'B7', 'Bm', 'F#m'];
+    return {
+      games: [
+        { href: 'G2-Almashtirish.dc.html', icon: '1:00', iconBg: '#E3E9FF', iconFg: '#1F3FCC', title: 'Akkord almashtirish', sub: '1 daqiqada nechta zanjir?', meta: 'Rekord 18', metaFg: '#15171A', opacity: 1 },
+        { href: 'G3-Quloq.dc.html', icon: '♪', iconBg: '#DDF0E7', iconFg: '#0B5A40', title: 'Quloq testi', sub: 'Akkordni eshiting va toping', meta: '8/10', metaFg: '#15171A', opacity: 1 },
+        { href: '#tez', icon: '↓↑', iconBg: '#FFF1DD', iconFg: '#8A4B00', title: 'Ritm', sub: 'Zarbga tushib chalish', meta: 'Tez orada', metaFg: '#5B6068', opacity: 0.6 },
+        { href: '#tez', icon: 'F', iconBg: '#F1F2EF', iconFg: '#15171A', title: 'Barre sinovi', sub: 'F akkordini toza chalish', meta: 'Tez orada', metaFg: '#5B6068', opacity: 0.6 }
+      ],
+      coll: all.slice(0, 8).map((n) => ({ n, bg: have[n] ? '#2F5BFF' : '#F1F2EF', fg: have[n] ? '#FFFFFF' : '#8A8F96' }))
+    };
+  }
+}
+</script>
+</body>
+</html>

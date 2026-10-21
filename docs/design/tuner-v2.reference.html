@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<title>ChordB — Sozlash v2</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&amp;family=IBM+Plex+Mono:wght@500;600&amp;display=swap">
+<style>
+body{margin:0;background:#F4F5F2}
+a{color:#2F5BFF}a:hover{color:#1F3FCC}
+button{font-family:inherit;cursor:pointer}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F2; color: #15171A; font-family: 'Bricolage Grotesque', sans-serif; display: flex; flex-direction: column; overflow: hidden">
+
+  <header style="flex: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 80px; box-sizing: border-box; padding: 0 16px; background: #FFFFFF; border-bottom: 1px solid #E3E5E0">
+    <h1 style="margin: 0; font-weight: 800; font-size: 26px; letter-spacing: -0.03em">Sozlash</h1>
+    <div style="display: flex; align-items: center; gap: 6px">
+      <sc-if value="{{manual}}" hint-placeholder-val="{{ false }}">
+        <button type="button" onClick="{{backToAuto}}" aria-label="Avtomatik aniqlashga qaytish" style="height: 30px; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; border-radius: 8px; border: 1px solid #C7D3FF; background: #FFFFFF; color: #1F3FCC; font-size: 12px; font-weight: 600">
+          <span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 50%; background: #2F5BFF"></span>Avto</button>
+      </sc-if>
+      <div role="group" aria-label="Notalarni nomlash usuli" style="display: flex; padding: 2px; border-radius: 9px; background: #EEEFEB">
+        <button type="button" aria-pressed="{{nh.pressed}}" onClick="{{setHarf}}" style="height: 28px; padding: 0 10px; border-radius: 7px; border: 0; background: {{nh.bg}}; color: {{nh.fg}}; box-shadow: {{nh.shadow}}; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600">ABC</button>
+        <button type="button" aria-pressed="{{ns.pressed}}" onClick="{{setSolfej}}" style="height: 28px; padding: 0 10px; border-radius: 7px; border: 0; background: {{ns.bg}}; color: {{ns.fg}}; box-shadow: {{ns.shadow}}; font-size: 12px; font-weight: 600">Do Re Mi</button>
+      </div>
+    </div>
+  </header>
+
+  <div role="meter" aria-label="Sozlanish" aria-valuemin="-50" aria-valuemax="50" aria-valuenow="{{cents}}" aria-valuetext="{{centsText}}" style="flex: none; position: relative; width: 358px; height: 64px; margin: 18px 16px 0">
+    <div style="position: absolute; left: 171px; top: 0; width: 16px; height: 38px; border-radius: 4px; background: #DDF0E7"></div>
+    <sc-for list="{{ticks}}" as="t" hint-placeholder-count="21">
+      <div style="position: absolute; left: {{t.x}}px; top: {{t.top}}px; width: 1px; height: {{t.h}}px; background: {{t.color}}"></div>
+    </sc-for>
+    <div style="position: absolute; left: {{pos}}px; top: -4px; width: 4px; height: 46px; margin-left: -2px; border-radius: 2px; background: {{needle}}"></div>
+    <span style="position: absolute; left: 0; top: 46px; font-size: 11px; color: #5B6068">past</span>
+    <span style="position: absolute; right: 0; top: 46px; font-size: 11px; color: #5B6068">baland</span>
+  </div>
+
+  <div style="flex: 1; min-height: 0; position: relative; display: flex; justify-content: center; align-items: flex-end">
+    <div style="position: relative; width: 390px; height: 600px; flex: none">
+      <svg aria-hidden="true" width="390" height="600" viewBox="0 0 390 600" style="position: absolute; left: 0; top: 0">
+        <defs><clipPath id="lgs6"><path d="M85.36 85.36A50 50 0 1 1 85.36 14.64L64.14 35.86A20 20 0 1 0 64.14 64.14Z"></path></clipPath></defs>
+        <line x1="92" y1="90" x2="126" y2="90" stroke="#C9CDD3" stroke-width="7" stroke-linecap="round"></line>
+        <line x1="92" y1="200" x2="126" y2="200" stroke="#C9CDD3" stroke-width="7" stroke-linecap="round"></line>
+        <line x1="92" y1="310" x2="126" y2="310" stroke="#C9CDD3" stroke-width="7" stroke-linecap="round"></line>
+        <line x1="264" y1="90" x2="298" y2="90" stroke="#C9CDD3" stroke-width="7" stroke-linecap="round"></line>
+        <line x1="264" y1="200" x2="298" y2="200" stroke="#C9CDD3" stroke-width="7" stroke-linecap="round"></line>
+        <line x1="264" y1="310" x2="298" y2="310" stroke="#C9CDD3" stroke-width="7" stroke-linecap="round"></line>
+        <path d="M148 450 L118 360 L112 52 Q112 20 142 18 L248 18 Q278 20 278 52 L272 360 L242 450 Z" fill="#1D2026"></path>
+        <rect x="150" y="454" width="90" height="146" fill="#2A2E35"></rect>
+        <rect x="150" y="522" width="90" height="3" fill="#8A8F96"></rect>
+        <rect x="150" y="596" width="90" height="3" fill="#8A8F96"></rect>
+        <circle cx="195" cy="560" r="4" fill="#5B6068"></circle>
+        <g transform="translate(181 372) scale(0.28)" clip-path="url(#lgs6)">
+          <rect x="0" y="0" width="100" height="11.9" fill="{{accent}}"></rect><rect x="0" y="17.7" width="100" height="11.7" fill="{{accent}}"></rect><rect x="0" y="36.2" width="100" height="10.9" fill="{{accent}}"></rect><rect x="0" y="52.9" width="100" height="47.1" fill="#FFFFFF"></rect>
+        </g>
+        <polyline points="140,310 158,450 158,600" fill="none" stroke="{{sc.s0}}" stroke-width="{{sw.s0}}"></polyline>
+        <polyline points="140,200 173,450 173,600" fill="none" stroke="{{sc.s1}}" stroke-width="{{sw.s1}}"></polyline>
+        <polyline points="140,90 188,450 188,600" fill="none" stroke="{{sc.s2}}" stroke-width="{{sw.s2}}"></polyline>
+        <polyline points="250,90 203,450 203,600" fill="none" stroke="{{sc.s3}}" stroke-width="{{sw.s3}}"></polyline>
+        <polyline points="250,200 218,450 218,600" fill="none" stroke="{{sc.s4}}" stroke-width="{{sw.s4}}"></polyline>
+        <polyline points="250,310 233,450 233,600" fill="none" stroke="{{sc.s5}}" stroke-width="{{sw.s5}}"></polyline>
+        <rect x="146" y="446" width="98" height="8" rx="2" fill="#ECE8DC"></rect>
+        <circle cx="140" cy="310" r="9" fill="{{pc.s0}}" stroke="#6B7078" stroke-width="2"></circle>
+        <circle cx="140" cy="200" r="9" fill="{{pc.s1}}" stroke="#6B7078" stroke-width="2"></circle>
+        <circle cx="140" cy="90" r="9" fill="{{pc.s2}}" stroke="#6B7078" stroke-width="2"></circle>
+        <circle cx="250" cy="90" r="9" fill="{{pc.s3}}" stroke="#6B7078" stroke-width="2"></circle>
+        <circle cx="250" cy="200" r="9" fill="{{pc.s4}}" stroke="#6B7078" stroke-width="2"></circle>
+        <circle cx="250" cy="310" r="9" fill="{{pc.s5}}" stroke="#6B7078" stroke-width="2"></circle>
+      </svg>
+      <sc-for list="{{keys}}" as="k" hint-placeholder-count="6">
+        <button type="button" aria-label="{{k.aria}}" aria-pressed="{{k.pressed}}" onClick="{{k.pick}}" style="position: absolute; left: {{k.x}}px; top: {{k.y}}px; width: 60px; height: 60px; margin-left: -30px; margin-top: -30px; border-radius: 18px; border: 2px solid {{k.border}}; background: {{k.bg}}; color: {{k.fg}}; box-shadow: {{k.shadow}}; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: {{k.font}}; font-weight: 700; font-size: {{k.fs}}px; line-height: 1.1">{{k.label}}<span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; color: {{k.subFg}}">{{k.sub}}</span></button>
+      </sc-for>
+    </div>
+  </div>
+
+  <nav aria-label="Asosiy menyu" style="flex: none; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; height: 80px; box-sizing: border-box; padding: 8px 8px 12px; border-top: 1px solid #E3E5E0; background: #FFFFFF">
+    <button type="button" aria-current="page" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-radius: 14px; border: 0; background: #E3E9FF; color: #1F3FCC; font-weight: 700; font-size: 11px">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16a8 8 0 0 1 16 0"/><path d="M12 16l4-5"/></svg>Sozlash</button>
+    <button type="button" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-radius: 14px; border: 0; background: none; color: #5B6068; font-weight: 600; font-size: 11px">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="16" rx="2"/><path d="M9.5 4v16M14.5 4v16M5 9h14M5 14h14"/></svg>Akkordlar</button>
+    <button type="button" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-radius: 14px; border: 0; background: none; color: #5B6068; font-weight: 600; font-size: 11px">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.5" fill="currentColor"/></svg>Mashq</button>
+    <button type="button" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-radius: 14px; border: 0; background: none; color: #5B6068; font-weight: 600; font-size: 11px">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6l10-2v12"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="16" r="2"/></svg>Qoʻshiqlar</button>
+    <button type="button" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-radius: 14px; border: 0; background: none; color: #5B6068; font-weight: 600; font-size: 11px">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.2-3.5 4-5 7-5s5.8 1.5 7 5"/></svg>Profil</button>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#2F5BFF","options":["#2F5BFF","#12805C","#15171A"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { sel: 1, auto: true, notation: 'harf' }; }
+  renderVals() {
+    const accent = this.props.accent ?? '#2F5BFF';
+    const good = '#12805C';
+    const sol = this.state.notation === 'solfej';
+    const sel = this.state.sel;
+    const auto = this.state.auto;
+    const list = [
+      { l: 'E', s: 'Mi', o: '2', c: -12, side: 'L', y: 310 },
+      { l: 'A', s: 'Lya', o: '2', c: -4, side: 'L', y: 200 },
+      { l: 'D', s: 'Re', o: '3', c: 0, side: 'L', y: 90 },
+      { l: 'G', s: 'Sol', o: '3', c: 7, side: 'R', y: 90 },
+      { l: 'B', s: 'Si', o: '3', c: 2, side: 'R', y: 200 },
+      { l: 'E', s: 'Mi', o: '4', c: -18, side: 'R', y: 310 }
+    ];
+    const gauge = [2.8, 2.4, 2.0, 1.7, 1.3, 1.0];
+    const s = list[sel];
+    const inTune = Math.abs(s.c) <= 3;
+    const name = (x) => (sol ? x.s : x.l);
+    const ticks = [];
+    for (let c = -50; c <= 50; c += 5) {
+      const major = c % 25 === 0;
+      ticks.push({ x: 179 + c * 3.4, top: major ? 0 : 12, h: major ? 38 : 14, color: c === 0 ? good : (major ? '#8A8F96' : '#C4C7C1') });
+    }
+    const sc = {}, sw = {}, pc = {};
+    list.forEach((x, i) => {
+      const on = i === sel;
+      sc['s' + i] = on ? accent : '#9AA0A8';
+      sw['s' + i] = gauge[i] + (on ? 1.4 : 0);
+      pc['s' + i] = on ? accent : '#E8E9EC';
+    });
+    const seg = (on) => ({ pressed: on ? 'true' : 'false', bg: on ? '#FFFFFF' : 'transparent', fg: on ? '#15171A' : '#5B6068', shadow: on ? '0 1px 2px rgba(0,0,0,0.12)' : 'none' });
+    return {
+      accent,
+      nh: seg(!sol), ns: seg(sol),
+      setHarf: () => this.setState({ notation: 'harf' }),
+      setSolfej: () => this.setState({ notation: 'solfej' }),
+      manual: !auto,
+      backToAuto: () => this.setState({ auto: true }),
+      cents: s.c,
+      centsText: name(s) + ' tori, ' + (inTune ? 'sozlangan' : (s.c < 0 ? Math.abs(s.c) + ' cent past' : s.c + ' cent baland')),
+      ticks,
+      needle: inTune ? good : accent,
+      pos: 179 + Math.max(-50, Math.min(50, s.c)) * 3.4,
+      sc, sw, pc,
+      keys: list.map((x, i) => {
+        const on = i === sel;
+        const ok = Math.abs(x.c) <= 3;
+        return {
+          label: name(x),
+          sub: ok ? '✓' : x.o,
+          subFg: on ? '#FFFFFF' : (ok ? good : '#8A8F96'),
+          aria: name(x) + x.o + ' tori' + (ok ? ', sozlangan' : ''),
+          pressed: on ? 'true' : 'false',
+          x: x.side === 'L' ? 50 : 340,
+          y: x.y,
+          bg: on ? accent : '#FFFFFF',
+          fg: on ? '#FFFFFF' : '#15171A',
+          border: on ? accent : (ok ? good : '#DADCD6'),
+          shadow: on ? '0 6px 16px rgba(47,91,255,0.35)' : '0 1px 2px rgba(0,0,0,0.06)',
+          font: sol ? "'Bricolage Grotesque', sans-serif" : "'IBM Plex Mono', monospace",
+          fs: sol ? 16 : 21,
+          pick: () => this.setState({ sel: i, auto: false })
+        };
+      })
+    };
+  }
+}
+</script>
+</body>
+</html>

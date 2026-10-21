@@ -1,57 +1,89 @@
-import type { Frets, Voicing } from "../chords";
-
-// Mini diagram for the player cards: geometry from song-player.reference.html.
-const MINI_SP = 11.2; // between strings
-const MINI_FR = 15; // between frets
-const MINI_TOP = 12; // nut
+import { diagramLayout, type Frets, type Voicing } from "../chords";
 
 export interface MiniColors {
-  fg: string; // nut and ×/○ marks
+  fg: string; // nut, ×/○ marks, base fret
   line: string; // strings and frets
   dot: string;
 }
 
-/** 56×72 chord box with a dot on every fretted string; empty when `frets` is null. */
+const MINI_TOP = 14;
+
+/**
+ * The player's chord box — song-player-v2.reference.html. `big` is the "Hozir" card.
+ * Barre shapes get a bar across the barred strings and "N-lad" under the grid; above
+ * the first fret a thin line replaces the nut.
+ */
 export function MiniChordDiagram({
   frets,
   colors,
   label,
+  big = false,
 }: {
   frets: Frets | null;
   colors: MiniColors;
   label: string;
+  big?: boolean;
 }) {
-  const fretted = frets?.filter((f) => f > 0) ?? [];
-  const lowest = fretted.length ? Math.min(...fretted) : 0;
-  const base = lowest > 2 ? lowest - 1 : 0;
+  const sp = big ? 12 : 10;
+  const fr = big ? 16 : 13;
+  const dot = big ? 12 : 10;
+  const l = frets ? diagramLayout(frets) : null;
+  const rows = l?.rows ?? 4;
+  const gridW = 5 * sp + 1;
+  const gridH = rows * fr;
+  const w = 5 * sp + 8;
+  const h = MINI_TOP + gridH + 18;
+  const y = (row: number) => MINI_TOP + (row - 0.5) * fr;
+
   return (
-    <div role="img" aria-label={label} className="mini-diagram" style={{ color: colors.fg }}>
-      {frets?.map((f, i) => (
-        <div key={`t${i}`} className="md-top" style={{ left: i * MINI_SP }}>
-          {f < 0 ? "×" : f === 0 ? "○" : ""}
-        </div>
-      ))}
-      <div className="md-nut" style={{ background: colors.fg }} />
-      {[1, 2, 3, 4].map((k) => (
-        <div key={`f${k}`} className="md-fret" style={{ top: MINI_TOP + k * MINI_FR, background: colors.line }} />
-      ))}
-      {[0, 1, 2, 3, 4, 5].map((i) => (
-        <div key={`s${i}`} className="md-string" style={{ left: i * MINI_SP, background: colors.line }} />
-      ))}
-      {frets?.map((f, i) =>
-        f > 0 ? (
-          <div
-            key={`d${i}`}
-            className="md-dot"
-            style={{
-              left: i * MINI_SP,
-              top: MINI_TOP + (f - base - 0.5) * MINI_FR,
-              background: colors.dot,
-            }}
-          />
+    <svg
+      role="img"
+      aria-label={label}
+      className="mini-diagram"
+      width={w}
+      height={h}
+      viewBox={`-4 0 ${w} ${h}`}
+    >
+      {l?.marks.map((m, i) =>
+        m ? (
+          <text key={`t${i}`} x={i * sp} y={9} fontSize={10} textAnchor="middle" fill={colors.fg}>
+            {m === "x" ? "×" : "○"}
+          </text>
         ) : null,
       )}
-    </div>
+      <rect x={0} y={MINI_TOP} width={gridW} height={l && l.base > 1 ? 1 : 3} fill={colors.fg} />
+      {Array.from({ length: rows }, (_, k) => (
+        <rect key={`f${k}`} x={0} y={MINI_TOP + (k + 1) * fr} width={gridW} height={1} fill={colors.line} />
+      ))}
+      {Array.from({ length: 6 }, (_, i) => (
+        <rect key={`s${i}`} x={i * sp} y={MINI_TOP} width={1} height={gridH} fill={colors.line} />
+      ))}
+      {l?.barre && (
+        <rect
+          x={l.barre.from * sp - dot / 2 + 0.5}
+          y={y(l.barre.row) - dot / 2}
+          width={(l.barre.to - l.barre.from) * sp + dot}
+          height={dot}
+          rx={dot / 2}
+          fill={colors.dot}
+        />
+      )}
+      {l?.dots.map((d) => (
+        <circle key={`d${d.string}`} cx={d.string * sp + 0.5} cy={y(d.row)} r={dot / 2} fill={colors.dot} />
+      ))}
+      {l && l.base > 1 && (
+        <text
+          x={0}
+          y={MINI_TOP + gridH + 14}
+          fontSize={11}
+          fontWeight={600}
+          fontFamily="var(--mono)"
+          fill={colors.fg}
+        >
+          {l.base}-lad
+        </text>
+      )}
+    </svg>
   );
 }
 
@@ -59,59 +91,59 @@ const LEFT = 18;
 const GAP_X = 14; // between strings
 const TOP = 24;
 const GAP_Y = 18; // between frets
-const FRETS = 5;
 const RIGHT = LEFT + GAP_X * 5;
-const BOTTOM = TOP + GAP_Y * FRETS;
 
-/** Classic chord box: strings vertical (low E left), nut on top, X / O for muted / open. */
+/** Classic chord box for the Akkordlar tab: same rules as the player's, larger. */
 export function ChordDiagram({ voicing }: { voicing: Voicing }) {
-  const { frets, barre } = voicing;
-  const fretted = frets.filter((f) => f > 0);
-  // Start at the nut when the shape fits in the first frets, else at its lowest fret.
-  const base = fretted.length && Math.max(...fretted) > 4 ? Math.min(...fretted) : 1;
+  const l = diagramLayout(voicing.frets);
+  const rows = Math.max(5, l.rows);
+  const bottom = TOP + GAP_Y * rows;
   const x = (i: number) => LEFT + i * GAP_X;
-  const y = (fret: number) => TOP + (fret - base + 0.5) * GAP_Y;
+  const y = (row: number) => TOP + (row - 0.5) * GAP_Y;
 
   return (
-    <svg className="chord-diagram" viewBox={`0 0 ${RIGHT + 12} ${BOTTOM + 6}`} aria-hidden="true">
-      {base === 1 ? (
-        <rect className="cd-nut" x={LEFT - 1} y={TOP - 4} width={RIGHT - LEFT + 2} height={4} rx={1} />
-      ) : (
-        <text className="cd-base" x={LEFT - 6} y={TOP + GAP_Y * 0.5 + 4} textAnchor="end">
-          {base}
-        </text>
-      )}
-      {Array.from({ length: FRETS + 1 }, (_, i) => (
-        <line key={`f${i}`} className="cd-fret" x1={LEFT} x2={RIGHT} y1={TOP + i * GAP_Y} y2={TOP + i * GAP_Y} />
+    <svg className="chord-diagram" viewBox={`0 0 ${RIGHT + 12} ${bottom + 18}`} aria-hidden="true">
+      <rect
+        className="cd-nut"
+        x={LEFT - 1}
+        y={l.base > 1 ? TOP - 1 : TOP - 4}
+        width={RIGHT - LEFT + 2}
+        height={l.base > 1 ? 1.5 : 4}
+        rx={l.base > 1 ? 0 : 1}
+      />
+      {Array.from({ length: rows }, (_, i) => (
+        <line key={`f${i}`} className="cd-fret" x1={LEFT} x2={RIGHT} y1={TOP + (i + 1) * GAP_Y} y2={TOP + (i + 1) * GAP_Y} />
       ))}
-      {frets.map((_, i) => (
-        <line key={`s${i}`} className="cd-string" x1={x(i)} x2={x(i)} y1={TOP} y2={BOTTOM} />
+      {voicing.frets.map((_, i) => (
+        <line key={`s${i}`} className="cd-string" x1={x(i)} x2={x(i)} y1={TOP} y2={bottom} />
       ))}
-
-      {barre && (
+      {l.barre && (
         <rect
           className="cd-dot"
-          x={x(barre.from) - 6}
-          y={y(barre.fret) - 6}
-          width={x(barre.to) - x(barre.from) + 12}
+          x={x(l.barre.from) - 6}
+          y={y(l.barre.row) - 6}
+          width={x(l.barre.to) - x(l.barre.from) + 12}
           height={12}
           rx={6}
         />
       )}
-      {frets.map((f, i) => {
-        if (f < 0) {
-          return (
-            <text key={i} className="cd-mark" x={x(i)} y={TOP - 9} textAnchor="middle">
-              ×
-            </text>
-          );
-        }
-        if (f === 0) {
-          return <circle key={i} className="cd-open" cx={x(i)} cy={TOP - 13} r={3.5} />;
-        }
-        if (barre && f === barre.fret && i >= barre.from && i <= barre.to) return null;
-        return <circle key={i} className="cd-dot" cx={x(i)} cy={y(f)} r={6} />;
-      })}
+      {l.marks.map((m, i) =>
+        m === "x" ? (
+          <text key={`m${i}`} className="cd-mark" x={x(i)} y={TOP - 9} textAnchor="middle">
+            ×
+          </text>
+        ) : m === "o" ? (
+          <circle key={`m${i}`} className="cd-open" cx={x(i)} cy={TOP - 13} r={3.5} />
+        ) : null,
+      )}
+      {l.dots.map((d) => (
+        <circle key={`d${d.string}`} className="cd-dot" cx={x(d.string)} cy={y(d.row)} r={6} />
+      ))}
+      {l.base > 1 && (
+        <text className="cd-base" x={LEFT - 1} y={bottom + 14}>
+          {l.base}-lad
+        </text>
+      )}
     </svg>
   );
 }

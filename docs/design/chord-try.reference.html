@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<title>ChordB — Akkordni sinab koʻrish</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&amp;family=IBM+Plex+Mono:wght@500;600&amp;display=swap">
+<style>
+body{margin:0;background:#F4F5F2}
+a{color:#1F3FCC}a:hover{color:#15309E}
+button{font-family:inherit;cursor:pointer}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F2; color: #15171A; font-family: 'Bricolage Grotesque', sans-serif; overflow: hidden">
+  <div aria-hidden="true" style="display: flex; flex-direction: column">
+    <div style="height: 80px; box-sizing: border-box; display: flex; align-items: center; padding: 0 16px; background: #FFFFFF; border-bottom: 1px solid #E3E5E0; font-weight: 800; font-size: 26px">Akkordlar</div>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding: 16px">
+      <sc-for list="{{bgGrid}}" as="b" hint-placeholder-count="9">
+        <div style="height: 120px; border-radius: 16px; background: #FFFFFF; border: 1px solid #DADCD6; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 10px; font-family: 'IBM Plex Mono', monospace; font-weight: 600">{{b}}</div>
+      </sc-for>
+    </div>
+  </div>
+  <div aria-hidden="true" style="position: absolute; inset: 0; background: rgba(21,23,26,0.45)"></div>
+
+  <section role="dialog" aria-label="Akkordni sinab koʻrish" style="position: absolute; left: 0; bottom: 0; width: 390px; box-sizing: border-box; padding: 10px 16px 22px; border-radius: 24px 24px 0 0; background: #FFFFFF; display: flex; flex-direction: column; align-items: center; gap: 14px">
+    <span aria-hidden="true" style="width: 40px; height: 5px; border-radius: 3px; background: #DADCD6"></span>
+    <div style="align-self: stretch; display: flex; align-items: center; justify-content: space-between">
+      <span style="font-size: 13px; color: #5B6068">{{pos}}</span>
+      <button type="button" aria-label="Ovozini tinglash" style="height: 36px; display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; border-radius: 10px; border: 1px solid #DADCD6; background: #FFFFFF; color: #15171A; font-size: 13px; font-weight: 600">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M11 5L6 9H3v6h3l5 4V5z"/></svg>Tinglash</button>
+    </div>
+    <span style="font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 56px; line-height: 1">{{now}}</span>
+    <span role="img" aria-label="{{diagAria}}" style="position: relative; width: 150px; height: 170px">
+      <sc-for list="{{tops}}" as="t" hint-placeholder-count="6">
+        <span style="position: absolute; left: {{t.x}}px; top: 0; width: 16px; margin-left: -8px; text-align: center; font-size: 14px; line-height: 14px; color: #5B6068">{{t.label}}</span>
+      </sc-for>
+      <span style="position: absolute; left: 0; top: 22px; width: 151px; height: 5px; background: #15171A"></span>
+      <sc-for list="{{frets}}" as="f" hint-placeholder-count="4">
+        <span style="position: absolute; left: 0; top: {{f.y}}px; width: 151px; height: 1px; background: #C4C7C1"></span>
+      </sc-for>
+      <sc-for list="{{strs}}" as="s" hint-placeholder-count="6">
+        <span style="position: absolute; left: {{s.x}}px; top: 22px; width: 1px; height: 144px; background: #8A8F96"></span>
+      </sc-for>
+      <sc-for list="{{dots}}" as="d" hint-placeholder-count="3">
+        <span style="position: absolute; left: {{d.x}}px; top: {{d.y}}px; width: 24px; height: 24px; margin-left: -11.5px; margin-top: -12px; border-radius: 50%; background: #2F5BFF; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700">{{d.f}}</span>
+      </sc-for>
+    </span>
+
+    <div aria-label="Torlar holati" style="align-self: stretch; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px">
+      <sc-for list="{{checks}}" as="c" hint-placeholder-count="6">
+        <span style="height: 44px; border-radius: 10px; background: {{c.bg}}; color: {{c.fg}}; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; line-height: 1.1">{{c.n}}<span style="font-size: 12px">{{c.m}}</span></span>
+      </sc-for>
+    </div>
+
+    <button type="button" onClick="{{act}}" style="align-self: stretch; height: 54px; border-radius: 14px; border: 0; background: {{btnBg}}; color: #FFFFFF; font-size: 16px; font-weight: 600">{{btn}}</button>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { done: false, i: 0 }; }
+  renderVals() {
+    const list = ['Am', 'C'];
+    const SH = {
+      Am: { s: ['x', 0, 2, 2, 1, 0], f: [null, null, '2', '3', '1', null] },
+      C: { s: ['x', 3, 2, 0, 1, 0], f: [null, '3', '2', null, '1', null] }
+    };
+    const now = list[this.state.i % 2];
+    const sh = SH[now];
+    const sp = 30, fr = 36, top = 22;
+    const done = this.state.done;
+    const names = ['E', 'A', 'D', 'G', 'B', 'e'];
+    return {
+      bgGrid: ['C', 'G', 'D', 'Am', 'Em', 'Dm', 'E', 'A', 'F'],
+      pos: (this.state.i % 2 + 4) + ' / 24 · boshlovchi akkordlar',
+      now, diagAria: now + ' akkordi diagrammasi',
+      tops: sh.s.map((v, i) => ({ x: i * sp, label: v === 'x' ? '×' : (v === 0 ? '○' : '') })),
+      frets: [1, 2, 3, 4].map((k) => ({ y: top + k * fr })),
+      strs: [0, 1, 2, 3, 4, 5].map((i) => ({ x: i * sp })),
+      dots: sh.s.map((v, i) => ({ v, i })).filter((p) => typeof p.v === 'number' && p.v > 0).map((p) => ({ x: p.i * sp, y: top + (p.v - 0.5) * fr, f: sh.f[p.i] || '' })),
+      checks: names.map((n, k) => {
+        const muted = sh.s[k] === 'x';
+        if (muted) return { n, m: '×', bg: '#F1F2EF', fg: '#8A8F96' };
+        if (!done) return { n, m: '…', bg: '#F4F5F2', fg: '#5B6068' };
+        return { n, m: '✓', bg: '#DDF0E7', fg: '#0B5A40' };
+      }),
+      btn: done ? 'Toʻgʻri! Keyingi akkord →' : 'Eshityapman… akkordni chaling',
+      btnBg: done ? '#12805C' : '#2F5BFF',
+      act: () => (done ? this.setState({ done: false, i: this.state.i + 1 }) : this.setState({ done: true }))
+    };
+  }
+}
+</script>
+</body>
+</html>

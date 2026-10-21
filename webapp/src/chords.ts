@@ -136,3 +136,42 @@ export function voicing(chord: Chord): Voicing {
 export function soundedPcs(frets: Frets): number[] {
   return frets.flatMap((f, i) => (f < 0 ? [] : [mod12(OPEN_MIDI[i] + f)]));
 }
+
+export interface DiagramLayout {
+  base: number; // fret shown in the top row; 1 = the nut is drawn, else "N-lad" under the grid
+  rows: number; // fret rows drawn (at least 4)
+  marks: ("x" | "o" | "")[]; // above each string: muted, open, or nothing
+  barre: { row: number; from: number; to: number } | null; // row 1 = the top row
+  dots: { string: number; row: number }[]; // fretted notes not under the barre
+}
+
+/**
+ * How a chord box draws `frets` (the song-player-v2 / game design rules): start at the
+ * nut unless the shape sits higher up, a barre bar across every string held at the
+ * lowest fret, and no open-string marks on barre shapes (they have none).
+ */
+export function diagramLayout(frets: Frets): DiagramLayout {
+  const fretted = frets.filter((f) => f > 0);
+  const min = fretted.length ? Math.min(...fretted) : 0;
+  const max = fretted.length ? Math.max(...fretted) : 0;
+  const hasOpen = frets.includes(0);
+  const base = max > 4 || (min > 1 && !hasOpen) ? min : 1;
+  const atMin = frets.flatMap((f, i) => (f === min ? [i] : []));
+  const isBarre = min > 0 && !hasOpen && atMin.length >= 2;
+  const row = (f: number) => f - base + 1;
+  return {
+    base,
+    rows: Math.max(4, max ? row(max) : 0),
+    marks: frets.map((f) => (f < 0 ? "x" : f === 0 ? "o" : "")),
+    barre: isBarre ? { row: row(min), from: atMin[0], to: atMin[atMin.length - 1] } : null,
+    dots: frets.flatMap((f, i) =>
+      f > 0 && !(isBarre && f === min) ? [{ string: i, row: row(f) }] : [],
+    ),
+  };
+}
+
+/** The open shapes a beginner already knows: no barre, nothing above the 4th fret. */
+export function isEasyShape(chord: Chord): boolean {
+  const key = openKey(chord);
+  return key !== null && key in OPEN;
+}

@@ -1,51 +1,43 @@
-// Song player — follows song-player.reference.html. Also plays analysed songs
+// Song player — follows song-player-v2.reference.html. Also plays analysed songs
 // (AnalysisPlayer.tsx): both are turned into a PlayerModel.
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ApiError, api, type ChordJson, type SongDetail, type SongSummary } from "../api";
 import { spelled, transpose, voicing } from "../chords";
 import { formatChord, type Chord, type NotationKind } from "../notation";
-import { haptic, inTelegram, openLink, useBackButton } from "../telegram";
+import { artistLine, displayTitle, distinct, suggestCapo } from "../songTitle";
+import { haptic, openLink, useBackButton } from "../telegram";
 import { t } from "../texts";
-import {
-  BEATS_PER_BAR,
-  activeIndex,
-  beatFromBeats,
-  beatOf,
-  formatTime,
-  groupBySection,
-  sectionBounds,
-  type TimedEvent,
-  type TimedSection,
-} from "../timeline";
+import { activeIndex, formatTime, sectionBounds, type TimedEvent, type TimedSection } from "../timeline";
 import { presetById, presetForShift, stringName, type PresetId } from "../tuning";
 import { useVideo, type MediaSource } from "../useVideo";
 import { YTState, type YTPlayer } from "../youtube";
 import { MiniChordDiagram, type MiniColors } from "./ChordDiagram";
+import { Screen } from "./Screen";
 
 const SPEEDS = [1, 0.75, 0.5];
 const MAX_SHIFT = 6;
-const MAX_CAPO = 7;
 const SAVE_EVERY_MS = 10_000;
+const STRIP_BEFORE = 1; // chords already played that stay visible in the strip
+const STRIP_LEN = 8;
+const NOTE_MS = 4000;
 
-const ACCENT = "var(--blue)";
 const NOW_COLORS: MiniColors = { fg: "#ffffff", line: "rgba(255,255,255,0.45)", dot: "#ffffff" };
-const NEXT_COLORS: MiniColors = { fg: "var(--text)", line: "#c4c7c1", dot: ACCENT };
+const NEXT_COLORS: MiniColors = { fg: "var(--text)", line: "#c4c7c1", dot: "var(--blue)" };
 
 export type PlayerEvent = TimedEvent & { chord: ChordJson | null }; // null = no chord
 
 /** Everything the player shows; built from a song or from an analysis. */
 export interface PlayerModel {
-  title: string;
-  subtitle: string; // artist, or where an analysis came from
-  key: ChordJson | null;
+  title: string; // raw: a YouTube title is cleaned for display only
+  artist: string | null; // the catalog's artist; analyses take it from the title
+  source: string; // the second line when there is no artist ("YouTube", "Fayl")
   capo: number;
-  tag: { label: string; className: string };
-  note?: string; // e.g. "chords may contain errors"
+  tag: { label: string; className: string }; // "auto" = automatically detected chords
+  note?: string; // shown when the tag is tapped, e.g. "chords may contain errors"
   durationSec: number;
   sections: TimedSection[];
   events: PlayerEvent[];
-  beats: number[] | null; // detected beats drive the beat bar when known
   media: MediaSource;
   youtubeId: string | null; // "open on YouTube" when the embed is refused
   startSec: number;
@@ -55,7 +47,6 @@ export interface PlayerModel {
   // Analyses: the song was most likely played in a down-tuning (shift -1 = Eb standard);
   // its shapes are the chords moved up by -shift.
   altTuning?: { name: string; shift: number } | null;
-  suggestedCapo?: number; // easier shapes in standard tuning
   onOpenTuner?: (preset: PresetId) => void;
 }
 
@@ -74,8 +65,8 @@ export function songModel(song: SongDetail): PlayerModel {
       : 0;
   return {
     title: song.title,
-    subtitle: song.artist,
-    key: song.key,
+    artist: song.artist,
+    source: song.artist,
     capo: song.capo,
     tag: { label: t.songs.levels[song.difficulty], className: song.difficulty },
     durationSec: song.duration_sec,
@@ -85,7 +76,6 @@ export function songModel(song: SongDetail): PlayerModel {
       section_id: e.section_id,
       chord: { root: e.root, quality: e.quality },
     })),
-    beats: null,
     media: { kind: "youtube", id: song.youtube_id },
     youtubeId: song.youtube_id,
     startSec: resumeAt,
@@ -123,17 +113,12 @@ export function SongPlayer({ songId, notation, onBack, onPaywall, onEdit }: Prop
   if (!model) {
     return <PlayerLoading failed={failed} onRetry={() => setAttempt((n) => n + 1)} />;
   }
-  return (
-    <>
-      <BrowserBack onBack={onBack} />
-      <Player model={model} notation={notation} onEdit={onEdit} />
-    </>
-  );
+  return <Player model={model} notation={notation} onEdit={onEdit} />;
 }
 
 export function PlayerLoading({ failed, onRetry }: { failed: boolean; onRetry: () => void }) {
   return (
-    <div className="page player-page">
+    <Screen title={t.tabs.songs} bodyClassName="player-body">
       {failed ? (
         <div className="song-list-note">
           <p>{t.loadFailed}</p>
@@ -142,21 +127,9 @@ export function PlayerLoading({ failed, onRetry }: { failed: boolean; onRetry: (
           </button>
         </div>
       ) : (
-        <div className="center muted">{t.loading}</div>
+        <div className="song-list-note muted">{t.loading}</div>
       )}
-    </div>
-  );
-}
-
-/** Outside Telegram there is no native back button; show a link instead. */
-export function BrowserBack({ onBack }: { onBack: () => void }) {
-  if (inTelegram) return null;
-  return (
-    <div className="browser-back">
-      <button type="button" className="back-link" onClick={onBack}>
-        ‹ {t.songs.back}
-      </button>
-    </div>
+    </Screen>
   );
 }
 
@@ -175,6 +148,8 @@ export function Player({
   // Shown as played in the detected down-tuning by default: covers are tabbed that way.
   const [useAlt, setUseAlt] = useState(Boolean(model.altTuning));
   const [loop, setLoop] = useState<{ start: number; end: number } | null>(null);
+  const [sheet, setSheet] = useState(false);
+  const [note, setNote] = useState(false);
   const loopRef = useRef(loop);
   loopRef.current = loop;
   const lastSave = useRef(Date.now());
@@ -185,26 +160,31 @@ export function Player({
     lastSave.current = Date.now();
   };
 
-  const video = useVideo(model.media, model.startSec, {
-    onReady: (p) => {
-      // A new <audio> (a re-picked file) starts at normal speed; keep the chosen one.
-      if (speed !== 1) p.setPlaybackRate(speed);
+  const video = useVideo(
+    model.media,
+    model.startSec,
+    {
+      onReady: (p) => {
+        // A new <audio> (a re-picked file) starts at normal speed; keep the chosen one.
+        if (speed !== 1) p.setPlaybackRate(speed);
+      },
+      onStateChange: (state, p) => {
+        if (state === YTState.PAUSED || state === YTState.ENDED) save(p);
+      },
+      onTick: (now, p) => {
+        const l = loopRef.current;
+        if (l && now >= l.end - 0.05) {
+          p.seekTo(l.start, true);
+          return l.start;
+        }
+        if (p.getPlayerState() === YTState.PLAYING && Date.now() - lastSave.current > SAVE_EVERY_MS) {
+          save(p);
+        }
+      },
+      onDispose: save,
     },
-    onStateChange: (state, p) => {
-      if (state === YTState.PAUSED || state === YTState.ENDED) save(p);
-    },
-    onTick: (now, p) => {
-      const l = loopRef.current;
-      if (l && now >= l.end - 0.05) {
-        p.seekTo(l.start, true);
-        return l.start;
-      }
-      if (p.getPlayerState() === YTState.PLAYING && Date.now() - lastSave.current > SAVE_EVERY_MS) {
-        save(p);
-      }
-    },
-    onDispose: save,
-  });
+    { controls: false }, // the player bar below is the only control
+  );
   const { time, playing, ready, error: videoError } = video;
   const duration = video.duration ?? model.durationSec;
 
@@ -217,34 +197,48 @@ export function Player({
     return () => document.removeEventListener("visibilitychange", onHide);
   });
 
+  useEffect(() => {
+    if (!note) return;
+    const id = setTimeout(() => setNote(false), NOTE_MS);
+    return () => clearTimeout(id);
+  }, [note]);
+
   const { events, sections } = model;
   const index = activeIndex(events, time);
-  const beat =
-    model.beats && index >= 0
-      ? beatFromBeats(model.beats, events[index].time_sec, time)
-      : beatOf(events, index, time, duration);
-  const groups = useMemo(() => groupBySection(sections, events), [sections, events]);
 
-  // Shapes are shown relative to the capo: Am with capo 2 is played as a Gm shape.
-  // In a down-tuning they move up: Fm on a guitar tuned a half step down is an F#m shape.
+  // Chords as played without a capo: transposed, and moved up for a down-tuning.
   const altShift = useAlt && model.altTuning ? model.altTuning.shift : 0;
-  const shown = (c: ChordJson): Chord => transpose(spelled(c), shift - capo - altShift);
-  const name = (c: ChordJson | null) => (c ? formatChord(shown(c), notation) : "—");
-  /** First distinct chords as they would be shown with `semitones` of extra shift. */
-  const preview = (semitones: number) => {
-    const out: string[] = [];
-    for (const e of events) {
-      if (!e.chord) continue;
-      const label = formatChord(transpose(spelled(e.chord), shift + semitones), notation);
-      if (!out.includes(label)) out.push(label);
-      if (out.length === 4) break;
-    }
-    return out.join(" ");
-  };
+  const played = (c: ChordJson): Chord => transpose(spelled(c), shift - altShift);
+  // Shapes are shown relative to the capo: Am with capo 2 is played as a Gm shape.
+  const shape = (c: ChordJson, withCapo = capo): Chord => transpose(played(c), -withCapo);
+  const name = (c: ChordJson | null) => (c ? formatChord(shape(c), notation) : "—");
+
+  const songChords = useMemo(
+    () => distinct(events.flatMap((e) => (e.chord ? [transpose(spelled(e.chord), shift - altShift)] : []))),
+    [events, shift, altShift],
+  );
+  const suggested = useMemo(() => suggestCapo(songChords, model.capo), [songChords, model.capo]);
+  const firstShapes = (withCapo: number) =>
+    songChords
+      .slice(0, 4)
+      .map((c) => formatChord(transpose(c, -withCapo), notation))
+      .join(" ");
+
+  // The strip: chord changes only ("no chord" gaps aren't chords to play).
+  const chordEvents = useMemo(
+    () => events.flatMap((e, i) => (e.chord ? [{ i, e }] : [])),
+    [events],
+  );
+  let cur = -1;
+  for (let k = 0; k < chordEvents.length && chordEvents[k].i <= index; k++) cur = k;
   const nowChord = index >= 0 ? events[index].chord : null;
-  const nextChord = index + 1 < events.length ? events[index + 1].chord : null;
+  const nextChord = chordEvents[cur + 1]?.e.chord ?? null;
+  const stripStart = Math.max(0, cur - STRIP_BEFORE);
+  const strip = chordEvents.slice(stripStart, stripStart + STRIP_LEN);
+
   const sol = notation === "solfege";
   const isFile = model.media.kind === "file";
+  const shown = displayTitle(model.title, model.artist);
 
   const seek = (sec: number) => {
     if (!ready) return;
@@ -256,26 +250,17 @@ export function Player({
     haptic.tap();
     video.toggle();
   };
-  const cycleSpeed = () => {
-    const next = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length];
-    haptic.tap();
-    setSpeed(next);
-    video.setRate(next);
-  };
-  const toggleLoop = () => {
-    haptic.tap();
-    setLoop(loop ? null : sectionBounds(sections, time, duration));
-  };
-
   const progress = duration > 0 ? Math.min(100, (time / duration) * 100) : 0;
+
   const card = (label: string, chord: ChordJson | null, now: boolean) => {
     const display = name(chord);
     return (
       <div className={`chord-now${now ? " is-now" : ""}`}>
         <MiniChordDiagram
-          frets={chord ? voicing(shown(chord)).frets : null}
+          frets={chord ? voicing(shape(chord)).frets : null}
           colors={now ? NOW_COLORS : NEXT_COLORS}
           label={t.player.diagram(display)}
+          big={now}
         />
         <div className="chord-now-text">
           <span className="chord-now-label">{label}</span>
@@ -283,7 +268,7 @@ export function Player({
             className="chord-now-name"
             style={{
               fontFamily: sol ? "var(--font)" : "var(--mono)",
-              fontSize: now ? (sol ? 20 : 34) : sol ? 17 : 28,
+              fontSize: now ? (sol ? 20 : 34) : sol ? 17 : 24,
             }}
           >
             {display}
@@ -293,45 +278,108 @@ export function Player({
     );
   };
 
-  return (
-    <div className="page player-page">
-      <div className="player-head">
-        <div className="player-head-text">
-          <h1>{model.title}</h1>
-          <span className="muted">
-            {model.subtitle} · {model.key ? formatChord(shown(model.key), notation) : t.analyze.noKey}{" "}
-            · {capo === 0 ? t.player.noCapo : t.player.capo(capo)}
-          </span>
+  const capoOn = capo !== model.capo;
+  const showCapo = suggested !== null || capoOn || model.capo > 0;
+
+  const right = (
+    <>
+      {model.tag.className === "auto" && model.note ? (
+        <button
+          type="button"
+          className="tag auto"
+          aria-expanded={note}
+          onClick={() => {
+            haptic.tap();
+            setNote((n) => !n);
+          }}
+        >
+          {model.tag.label}
+        </button>
+      ) : (
+        <span className={`tag ${model.tag.className}`}>{model.tag.label}</span>
+      )}
+      {note && model.note && (
+        <span className="avto-note" role="status">
+          {model.note}
+        </span>
+      )}
+    </>
+  );
+
+  const bar = (
+    <div className="player-bar">
+      <button
+        type="button"
+        className="player-play"
+        aria-label={playing ? t.player.pause : t.player.play}
+        disabled={!ready}
+        onClick={togglePlay}
+      >
+        {playing ? (
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <rect x="6" y="5" width="4" height="14" rx="1" />
+            <rect x="14" y="5" width="4" height="14" rx="1" />
+          </svg>
+        ) : (
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M8 5v14l11-7z" />
+          </svg>
+        )}
+      </button>
+      <div className="player-track">
+        <div
+          className="player-progress"
+          role="slider"
+          aria-label={t.player.position}
+          aria-valuemin={0}
+          aria-valuemax={Math.round(duration)}
+          aria-valuenow={Math.round(time)}
+          aria-valuetext={`${formatTime(time)} / ${formatTime(duration)}`}
+          tabIndex={0}
+          onClick={(e) => {
+            const r = e.currentTarget.getBoundingClientRect();
+            seek(((e.clientX - r.left) / r.width) * duration);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowRight") seek(Math.min(duration, time + 5));
+            if (e.key === "ArrowLeft") seek(Math.max(0, time - 5));
+          }}
+        >
+          <div style={{ width: `${progress}%` }} />
         </div>
-        <div className="player-head-side">
-          {onEdit && (
-            <button type="button" className="control small" onClick={onEdit}>
-              {t.player.edit}
-            </button>
-          )}
-          <span className={`tag big ${model.tag.className}`}>{model.tag.label}</span>
+        <div className="player-times">
+          <span>{formatTime(time)}</span>
+          <span>{formatTime(duration)}</span>
         </div>
       </div>
-      {model.note && <p className="player-note">{model.note}</p>}
+      <button
+        type="button"
+        className={`player-settings${loop || speed !== 1 || shift !== 0 ? " on" : ""}`}
+        aria-label={t.player.settings}
+        onClick={() => {
+          haptic.tap();
+          setSheet(true);
+        }}
+      >
+        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          strokeWidth="2" strokeLinecap="round">
+          <path d="M4 7h10M18 7h2M4 17h4M12 17h8" />
+          <circle cx="16" cy="7" r="2" />
+          <circle cx="10" cy="17" r="2" />
+        </svg>
+      </button>
+    </div>
+  );
 
-      {(model.altTuning || (model.suggestedCapo ?? 0) > 0) && (
-        <TuningCard
-          model={model}
-          useAlt={useAlt}
-          capo={capo}
-          notation={notation}
-          preview={preview}
-          onUseAlt={(on) => {
-            haptic.tap();
-            setUseAlt(on);
-          }}
-          onCapo={(n) => {
-            haptic.tap();
-            setCapo(n);
-          }}
-        />
-      )}
-
+  return (
+    <Screen
+      title={shown.title}
+      sub={artistLine(shown, model.source)}
+      right={right}
+      className="player"
+      bodyClassName="player-body"
+      after={bar}
+    >
       <div className={`video${isFile ? " audio" : ""}`}>
         <div ref={video.hostRef} className="video-host" />
         {isFile && (
@@ -356,235 +404,221 @@ export function Player({
             )}
           </div>
         )}
-        <div className="video-progress">
-          <div style={{ width: `${progress}%` }} />
-        </div>
       </div>
 
-      <div className="chord-pair">
-        {card(t.player.now, nowChord, true)}
-        {card(t.player.next, nextChord, false)}
-      </div>
-
-      <div className="beat-bar" role="img" aria-label={t.player.beat(beat + 1)}>
-        {Array.from({ length: BEATS_PER_BAR }, (_, i) => (
-          <div key={i} className={i <= beat ? "on" : ""} />
-        ))}
-      </div>
-
-      <div className="sections-card">
-        {groups.length === 0 ? (
-          <p className="muted">{t.player.noChords}</p>
-        ) : (
-          groups.map((g, gi) => (
-            <div key={gi} className="section">
-              {g.title && <span className="section-name">{g.title}</span>}
-              <div className="section-bars">
-                {g.items.map(({ event, index: i }) => {
-                  const label = name(event.chord);
-                  return (
-                    <button
-                      key={i}
-                      type="button"
-                      aria-label={t.player.seekTo(label)}
-                      className={`bar-cell${i === index ? " now" : i < index ? " past" : ""}`}
-                      style={{
-                        fontFamily: sol ? "var(--font)" : "var(--mono)",
-                        fontSize: sol ? 11 : 16,
-                      }}
-                      onClick={() => seek(event.time_sec)}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-
-      <div className="player-controls">
-        <div className="ton">
-          <button
-            type="button"
-            aria-label={t.player.tonDown}
-            onClick={() => setShift((s) => Math.max(-MAX_SHIFT, s - 1))}
-          >
-            −
-          </button>
-          <span>
-            {t.player.ton} {shift > 0 ? `+${shift}` : shift < 0 ? `−${-shift}` : "0"}
-          </span>
-          <button
-            type="button"
-            aria-label={t.player.tonUp}
-            onClick={() => setShift((s) => Math.min(MAX_SHIFT, s + 1))}
-          >
-            +
-          </button>
-        </div>
+      {showCapo && (
         <button
           type="button"
-          className="control"
+          className={`capo-card${capoOn ? " on" : ""}`}
+          aria-pressed={capoOn}
+          disabled={!capoOn && suggested === null}
           onClick={() => {
             haptic.tap();
-            setCapo((c) => (c + 1) % (MAX_CAPO + 1));
+            setCapo(capoOn ? model.capo : suggested!);
           }}
         >
-          {t.player.kapo} {capo}
+          <span className="capo-num" aria-hidden="true">
+            {capo}
+          </span>
+          <span className="capo-text">
+            <span className="capo-title">
+              {capoOn
+                ? t.player.capoOn(capo)
+                : suggested !== null
+                  ? t.player.capoOffer(suggested)
+                  : t.player.capoAt(capo)}
+            </span>
+            <span className="capo-sub">
+              {capoOn
+                ? t.player.capoBack
+                : suggested !== null
+                  ? `${firstShapes(model.capo)} → ${firstShapes(suggested)}`
+                  : firstShapes(capo)}
+            </span>
+          </span>
         </button>
-        <button
-          type="button"
-          className={`control${speed !== 1 ? " active" : ""}`}
-          onClick={cycleSpeed}
-        >
-          {t.player.speed} {speed}×
-        </button>
-      </div>
+      )}
 
-      <div className="player-bar">
-        <button
-          type="button"
-          className="player-play"
-          aria-label={playing ? t.player.pause : t.player.play}
-          disabled={!ready}
-          onClick={togglePlay}
-        >
-          {playing ? (
-            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-              <rect x="6" y="5" width="4" height="14" rx="1" />
-              <rect x="14" y="5" width="4" height="14" rx="1" />
-            </svg>
-          ) : (
-            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M8 5v14l11-7z" />
-            </svg>
-          )}
-        </button>
-        <div className="player-track">
-          <div
-            className="player-progress"
-            onClick={(e) => {
-              const r = e.currentTarget.getBoundingClientRect();
-              seek(((e.clientX - r.left) / r.width) * duration);
-            }}
-          >
-            <div style={{ width: `${progress}%` }} />
+      {events.length === 0 ? (
+        <p className="muted">{t.player.noChords}</p>
+      ) : (
+        <>
+          <div className="chord-pair">
+            {card(t.player.now, nowChord, true)}
+            {card(t.player.next, nextChord, false)}
           </div>
-          <div className="player-times">
-            <span>{formatTime(time)}</span>
-            <span>{formatTime(duration)}</span>
+
+          <div className="chord-strip" aria-label={t.player.strip}>
+            {strip.map(({ i, e }, k) => {
+              const label = name(e.chord);
+              const at = stripStart + k;
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  aria-label={t.player.seekTo(label)}
+                  aria-current={at === cur ? "true" : undefined}
+                  className={`strip-cell${at === cur ? " now" : at < cur ? " past" : ""}`}
+                  style={{ fontFamily: sol ? "var(--font)" : "var(--mono)", fontSize: sol ? 12 : 15 }}
+                  onClick={() => seek(e.time_sec)}
+                >
+                  {label}
+                </button>
+              );
+            })}
           </div>
-        </div>
-        <button
-          type="button"
-          className={`player-loop${loop ? " on" : ""}`}
-          aria-label={t.player.loop}
-          aria-pressed={loop !== null}
-          onClick={toggleLoop}
-        >
-          <svg
-            aria-hidden="true"
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M17 2l3 3-3 3" />
-            <path d="M4 11V9a4 4 0 0 1 4-4h12" />
-            <path d="M7 22l-3-3 3-3" />
-            <path d="M20 13v2a4 4 0 0 1-4 4H4" />
-          </svg>
-        </button>
-      </div>
-    </div>
+        </>
+      )}
+
+      {sheet && (
+        <SettingsSheet
+          model={model}
+          notation={notation}
+          shift={shift}
+          speed={speed}
+          loop={loop !== null}
+          useAlt={useAlt}
+          onShift={(s) => setShift(Math.max(-MAX_SHIFT, Math.min(MAX_SHIFT, s)))}
+          onSpeed={(s) => {
+            setSpeed(s);
+            video.setRate(s);
+          }}
+          onLoop={(on) => setLoop(on ? sectionBounds(sections, time, duration) : null)}
+          onUseAlt={setUseAlt}
+          onEdit={onEdit}
+          onClose={() => setSheet(false)}
+        />
+      )}
+    </Screen>
   );
 }
 
-/** "Standart sozlash" | "Yarim ton past" for analyses, with the capo or tuner hint. */
-function TuningCard({
+/** The player's settings: transpose, speed, section loop; tuning for down-tuned covers. */
+function SettingsSheet({
   model,
-  useAlt,
-  capo,
   notation,
-  preview,
+  shift,
+  speed,
+  loop,
+  useAlt,
+  onShift,
+  onSpeed,
+  onLoop,
   onUseAlt,
-  onCapo,
+  onEdit,
+  onClose,
 }: {
   model: PlayerModel;
-  useAlt: boolean;
-  capo: number;
   notation: NotationKind;
-  preview: (semitones: number) => string;
+  shift: number;
+  speed: number;
+  loop: boolean;
+  useAlt: boolean;
+  onShift: (s: number) => void;
+  onSpeed: (s: number) => void;
+  onLoop: (on: boolean) => void;
   onUseAlt: (on: boolean) => void;
-  onCapo: (n: number) => void;
+  onEdit?: () => void;
+  onClose: () => void;
 }) {
   const alt = model.altTuning;
-  const suggested = model.suggestedCapo ?? 0;
   const preset = alt ? presetForShift(alt.shift) : null;
-  const sol = notation === "solfege";
-  const chordsStyle = { fontFamily: sol ? "var(--font)" : "var(--mono)" };
   const presetNotes = (id: PresetId) => {
     const p = presetById(id);
     return p.strings.map((s) => stringName(s.pc, notation, p.flat)).join(" ");
   };
   return (
-    <div className="tuning-card">
-      {alt && (
-        <div className="segmented tuning-switch" role="group" aria-label={t.player.tuningLabel}>
-          <button
-            type="button"
-            className={useAlt ? "" : "selected"}
-            aria-pressed={!useAlt}
-            onClick={() => onUseAlt(false)}
-          >
-            <span>{t.player.standardTuning}</span>
-            <span className="tuning-chords" style={chordsStyle}>
-              {preview(0)}
-            </span>
-          </button>
-          <button
-            type="button"
-            className={useAlt ? "selected" : ""}
-            aria-pressed={useAlt}
-            onClick={() => onUseAlt(true)}
-          >
-            <span>{t.player.altTuning(alt.shift)}</span>
-            <span className="tuning-chords" style={chordsStyle}>
-              {preview(-alt.shift)}
-            </span>
-          </button>
-        </div>
-      )}
-      {useAlt && preset ? (
-        <div className="tuning-hint">
-          <span>{t.player.altHint(presetNotes(preset))}</span>
-          {model.onOpenTuner && (
-            <button
-              type="button"
-              className="control small"
-              onClick={() => model.onOpenTuner!(preset)}
-            >
-              {t.player.openTuner}
+    <div className="overlay" onClick={onClose}>
+      <div
+        className="sheet player-sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-label={t.player.settings}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <span className="sheet-handle" aria-hidden="true" />
+        <div className="sheet-row">
+          <span className="card-label">{t.player.ton}</span>
+          <div className="ton">
+            <button type="button" aria-label={t.player.tonDown} onClick={() => onShift(shift - 1)}>
+              −
             </button>
-          )}
-        </div>
-      ) : (
-        suggested > 0 &&
-        capo !== suggested && (
-          <div className="tuning-hint">
-            <span>{t.player.capoHint(suggested, preview(-suggested))}</span>
-            <button type="button" className="control small" onClick={() => onCapo(suggested)}>
-              {t.player.setCapo(suggested)}
+            <span>{shift > 0 ? `+${shift}` : shift < 0 ? `−${-shift}` : "0"}</span>
+            <button type="button" aria-label={t.player.tonUp} onClick={() => onShift(shift + 1)}>
+              +
             </button>
           </div>
-        )
-      )}
+        </div>
+        <div className="sheet-row">
+          <span className="card-label">{t.player.speed}</span>
+          <div className="segmented" role="group" aria-label={t.player.speed}>
+            {SPEEDS.map((s) => (
+              <button
+                key={s}
+                type="button"
+                className={s === speed ? "selected" : ""}
+                aria-pressed={s === speed}
+                onClick={() => {
+                  haptic.tap();
+                  onSpeed(s);
+                }}
+              >
+                {s}×
+              </button>
+            ))}
+          </div>
+        </div>
+        <label className="sheet-row">
+          <span className="card-label">{t.player.loop}</span>
+          <input
+            type="checkbox"
+            className="switch"
+            checked={loop}
+            onChange={(e) => {
+              haptic.tap();
+              onLoop(e.target.checked);
+            }}
+          />
+        </label>
+        {alt && (
+          <div className="sheet-block">
+            <span className="card-label">{t.player.tuningLabel}</span>
+            <div className="segmented wide" role="group" aria-label={t.player.tuningLabel}>
+              <button
+                type="button"
+                className={useAlt ? "" : "selected"}
+                aria-pressed={!useAlt}
+                onClick={() => onUseAlt(false)}
+              >
+                {t.player.standardTuning}
+              </button>
+              <button
+                type="button"
+                className={useAlt ? "selected" : ""}
+                aria-pressed={useAlt}
+                onClick={() => onUseAlt(true)}
+              >
+                {t.player.altTuning(alt.shift)}
+              </button>
+            </div>
+            {useAlt && preset && (
+              <div className="tuning-hint">
+                <span className="mono">{presetNotes(preset)}</span>
+                {model.onOpenTuner && (
+                  <button type="button" className="control small" onClick={() => model.onOpenTuner!(preset)}>
+                    {t.player.openTuner}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+        {onEdit && (
+          <button type="button" className="button wide secondary" onClick={onEdit}>
+            {t.player.edit}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

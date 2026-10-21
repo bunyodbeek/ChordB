@@ -2,20 +2,28 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { detectPitch, median } from "./pitch";
 
-export type TunerStatus = "idle" | "starting" | "listening" | "denied" | "unavailable";
+// "blocked": the mic is allowed but the browser keeps audio off until a tap.
+export type TunerStatus = "idle" | "starting" | "listening" | "blocked" | "denied" | "unavailable";
 
 const FFT_SIZE = 4096;
 const DETECT_EVERY_MS = 50; // ~20 detections/s is plenty and keeps phones cool
 const HISTORY = 5; // median over this many detections steadies the needle
 const SILENCE_MS = 400; // clear the readout after this long without a pitch
+const RESUME_WAIT_MS = 300; // resume() never settles in some blocked WebViews
 
-/** Microphone → steady fundamental frequency in Hz (null while silent). */
+/**
+ * Microphone → steady fundamental frequency in Hz (null while silent).
+ * Starts by itself when mounted (the tuner listens as soon as the mic is allowed).
+ */
 export function useTuner() {
   const [status, setStatus] = useState<TunerStatus>("idle");
   const [freq, setFreq] = useState<number | null>(null);
   const stopRef = useRef<(() => void) | null>(null);
+  // Bumped by stop(): a start() still waiting for the mic sees it and backs out.
+  const generation = useRef(0);
 
   const stop = useCallback(() => {
+    generation.current++;
     stopRef.current?.();
     stopRef.current = null;
     setFreq(null);
@@ -24,16 +32,13 @@ export function useTuner() {
 
   const start = useCallback(async () => {
     if (stopRef.current) return;
+    const gen = ++generation.current;
     if (!navigator.mediaDevices?.getUserMedia) {
       setStatus("unavailable");
       return;
     }
     setStatus("starting");
-    // Created inside the tap handler, before any await: iOS only allows audio to
-    // start from a user gesture.
     const ctx = new AudioContext();
-    // Resume while still inside the gesture too: after the await below, some
-    // WebViews (Telegram on iOS) refuse and leave the context suspended, silent.
     void ctx.resume();
     let stream: MediaStream;
     try {
@@ -43,11 +48,16 @@ export function useTuner() {
       });
     } catch (e) {
       void ctx.close();
+      if (gen !== generation.current) return;
       const name = e instanceof DOMException ? e.name : "";
       setStatus(name === "NotFoundError" ? "unavailable" : "denied");
       return;
     }
-    await ctx.resume();
+    if (gen !== generation.current) {
+      stream.getTracks().forEach((track) => track.stop());
+      void ctx.close();
+      return;
+    }
 
     const analyser = ctx.createAnalyser();
     analyser.fftSize = FFT_SIZE;
@@ -57,10 +67,6 @@ export function useTuner() {
     const mute = ctx.createGain();
     mute.gain.value = 0;
     analyser.connect(mute).connect(ctx.destination);
-    // Opening the mic can interrupt the audio session (iOS); pick it back up.
-    ctx.onstatechange = () => {
-      if (ctx.state !== "running" && ctx.state !== "closed") void ctx.resume();
-    };
     const buf = new Float32Array(FFT_SIZE);
 
     const history: number[] = [];
@@ -85,18 +91,45 @@ export function useTuner() {
         setFreq(null);
       }
     };
-    raf = requestAnimationFrame(tick);
+
+    // Audio blocked until a gesture: the first tap anywhere starts it (once).
+    const unlock = () => {
+      void ctx.resume();
+    };
+    const onState = () => {
+      if (ctx.state === "running") {
+        document.removeEventListener("pointerdown", unlock);
+        setStatus("listening");
+      } else if (ctx.state !== "closed") {
+        // Opening the mic can interrupt the audio session (iOS); pick it back up.
+        void ctx.resume();
+      }
+    };
+    ctx.onstatechange = onState;
 
     stopRef.current = () => {
       cancelAnimationFrame(raf);
       ctx.onstatechange = null;
+      document.removeEventListener("pointerdown", unlock);
       stream.getTracks().forEach((track) => track.stop());
       void ctx.close();
     };
-    setStatus("listening");
+
+    await Promise.race([ctx.resume(), new Promise((r) => setTimeout(r, RESUME_WAIT_MS))]);
+    if (gen !== generation.current) return;
+    raf = requestAnimationFrame(tick);
+    if (ctx.state === "running") {
+      setStatus("listening");
+    } else {
+      document.addEventListener("pointerdown", unlock);
+      setStatus("blocked");
+    }
   }, []);
 
-  useEffect(() => () => stopRef.current?.(), []);
+  useEffect(() => {
+    void start();
+    return stop;
+  }, [start, stop]);
 
   return { status, freq, start, stop };
 }

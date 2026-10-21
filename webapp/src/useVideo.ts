@@ -23,7 +23,12 @@ export interface VideoHandlers {
   onDispose?: (p: YTPlayer) => void;
 }
 
-export function useVideo(source: MediaSource, startSec: number, handlers: VideoHandlers = {}) {
+export function useVideo(
+  source: MediaSource,
+  startSec: number,
+  handlers: VideoHandlers = {},
+  { controls = true }: { controls?: boolean } = {}, // YouTube's own controls
+) {
   const hostRef = useRef<HTMLDivElement>(null);
   const player = useRef<YTPlayer | null>(null);
   const h = useRef(handlers);
@@ -43,7 +48,7 @@ export function useVideo(source: MediaSource, startSec: number, handlers: VideoH
     const create =
       source.kind === "youtube"
         ? (events: Parameters<typeof createPlayer>[3]) =>
-            createPlayer(hostRef.current!, source.id, startSec, events)
+            createPlayer(hostRef.current!, source.id, startSec, events, { controls })
         : (events: Parameters<typeof createPlayer>[3]) =>
             createAudioPlayer(hostRef.current!, source.url!, startSec, events);
     create({

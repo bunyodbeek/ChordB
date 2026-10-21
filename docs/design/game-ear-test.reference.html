@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<title>ChordB — Quloq testi</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&amp;family=IBM+Plex+Mono:wght@500;600&amp;display=swap">
+<style>
+body{margin:0;background:#F4F5F2}
+a{color:#1F3FCC}a:hover{color:#15309E}
+button{font-family:inherit;cursor:pointer}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F2; color: #15171A; font-family: 'Bricolage Grotesque', sans-serif; display: flex; flex-direction: column; overflow: hidden">
+  <header style="flex: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 80px; box-sizing: border-box; padding: 0 16px; background: #FFFFFF; border-bottom: 1px solid #E3E5E0">
+    <h1 style="margin: 0; font-weight: 800; font-size: 26px; letter-spacing: -0.02em">Quloq testi</h1>
+    <span style="font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 15px">{{score}}/10</span>
+  </header>
+
+  <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 18px; padding: 18px 16px">
+    <div aria-label="Savollar" style="display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 4px">
+      <sc-for list="{{dots}}" as="d" hint-placeholder-count="10">
+        <span style="height: 6px; border-radius: 3px; background: {{d.c}}"></span>
+      </sc-for>
+    </div>
+    <span style="font-size: 14px; color: #5B6068">{{qLabel}}</span>
+
+    <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; border-radius: 24px; background: #FFFFFF; border: 1px solid #DADCD6">
+      <button type="button" aria-label="Akkordni tinglash" style="width: 112px; height: 112px; border-radius: 50%; border: 0; background: #2F5BFF; color: #FFFFFF; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 12px #E3E9FF">
+        <svg aria-hidden="true" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H3v6h3l5 4V5z" fill="currentColor"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+      </button>
+      <span style="font-weight: 600; font-size: 16px">Qaysi akkord yangradi?</span>
+      <button type="button" style="height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid #DADCD6; background: #FFFFFF; color: #15171A; font-size: 13px; font-weight: 600">Yana tinglash</button>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+      <sc-for list="{{opts}}" as="o" hint-placeholder-count="4">
+        <button type="button" onClick="{{o.pick}}" aria-label="{{o.aria}}" style="height: 72px; border-radius: 16px; border: 2px solid {{o.border}}; background: {{o.bg}}; color: {{o.fg}}; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px">
+          <span style="font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 24px">{{o.n}}</span>
+          <span style="font-size: 12px; font-weight: 600">{{o.note}}</span>
+        </button>
+      </sc-for>
+    </div>
+
+    <sc-if value="{{answered}}" hint-placeholder-val="{{ false }}">
+      <button type="button" onClick="{{next}}" style="height: 52px; border-radius: 14px; border: 0; background: #15171A; color: #FFFFFF; font-size: 16px; font-weight: 600">Keyingi savol</button>
+    </sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { q: 7, score: 6, picked: null }; }
+  renderVals() {
+    const answer = 'Em';
+    const opts = ['Am', 'Em', 'C', 'G'];
+    const picked = this.state.picked;
+    const q = this.state.q;
+    return {
+      score: this.state.score,
+      qLabel: q + '-savol · minor yoki major?',
+      dots: Array.from({ length: 10 }, (_, i) => ({ c: i < q - 1 ? (i === 3 ? '#B42318' : '#12805C') : (i === q - 1 ? '#2F5BFF' : '#E3E5E0') })),
+      answered: picked !== null,
+      opts: opts.map((n) => {
+        const isAns = n === answer, isPick = n === picked;
+        let bg = '#FFFFFF', fg = '#15171A', border = '#DADCD6', note = n.endsWith('m') ? 'minor' : 'major';
+        if (picked !== null && isAns) { bg = '#DDF0E7'; fg = '#0B5A40'; border = '#12805C'; note = '✓ toʻgʻri'; }
+        else if (picked !== null && isPick) { bg = '#FDECEC'; fg = '#B42318'; border = '#B42318'; note = '✕ notoʻgʻri'; }
+        return { n, note, bg, fg, border, aria: n + ' akkordi', pick: () => { if (picked === null) this.setState({ picked: n, score: this.state.score + (isAns ? 1 : 0) }); } };
+      }),
+      next: () => this.setState({ picked: null, q: Math.min(10, q + 1) })
+    };
+  }
+}
+</script>
+</body>
+</html>

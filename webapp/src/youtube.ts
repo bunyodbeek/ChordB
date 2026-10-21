@@ -64,12 +64,16 @@ export function loadYouTubeApi(): Promise<YTNamespace> {
   return loading;
 }
 
-/** Create a player inside `host` (its contents are replaced by the iframe). */
+/**
+ * Create a player inside `host` (its contents are replaced by the iframe).
+ * `controls: false`: no YouTube controls at all; the page's own player bar drives it.
+ */
 export async function createPlayer(
   host: HTMLElement,
   videoId: string,
   startSec: number,
   events: NonNullable<YTPlayerOptions["events"]>,
+  { controls = true }: { controls?: boolean } = {},
 ): Promise<YTPlayer> {
   const YT = await loadYouTubeApi();
   const mount = document.createElement("div");
@@ -82,6 +86,7 @@ export async function createPlayer(
       playsinline: 1, // iOS: play inside the Mini App, not fullscreen
       rel: 0,
       modestbranding: 1,
+      ...(controls ? {} : { controls: 0, disablekb: 1, fs: 0, iv_load_policy: 3 }),
       start: Math.floor(startSec),
       origin: window.location.origin,
     },

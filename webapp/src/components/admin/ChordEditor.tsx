@@ -20,7 +20,6 @@ import { formatChord, noteName, type NotationKind, type Quality } from "../../no
 import { confirmDialog, haptic, openLink, useBackButton } from "../../telegram";
 import { t } from "../../texts";
 import { useVideo } from "../../useVideo";
-import { BrowserBack } from "../SongPlayer";
 
 const SPEEDS = [1, 0.75, 0.5];
 const OFFSET_KEY = "chordb.editor.offset";
@@ -230,7 +229,6 @@ function Editor({ song, notation, onBack }: { song: SongDetail; notation: Notati
 
   return (
     <div className="page editor-page">
-      <BrowserBack onBack={() => void back()} />
       <div className="editor-head">
         <div className="editor-head-text">
           <span className="editor-admin">{t.admin.label}</span>

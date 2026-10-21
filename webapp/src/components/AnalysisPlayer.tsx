@@ -8,7 +8,7 @@ import type { NotationKind } from "../notation";
 import { useBackButton } from "../telegram";
 import type { PresetId } from "../tuning";
 import { t } from "../texts";
-import { BrowserBack, Player, PlayerLoading, type PlayerModel } from "./SongPlayer";
+import { Player, PlayerLoading, type PlayerModel } from "./SongPlayer";
 
 interface Props {
   analysisId: number;
@@ -41,8 +41,8 @@ export function AnalysisPlayer({ analysisId, notation, onBack, onOpenTuner }: Pr
     const youtube = analysis.source === "youtube" && analysis.youtube_id;
     return {
       title: analysisTitle(analysis),
-      subtitle: youtube ? "YouTube" : t.analyze.upload,
-      key: analysis.key,
+      artist: null, // taken from the YouTube title when it has one
+      source: youtube ? "YouTube" : t.analyze.upload,
       capo: 0,
       tag: { label: t.analyze.auto, className: "auto" },
       note: t.analyze.autoNote,
@@ -53,7 +53,6 @@ export function AnalysisPlayer({ analysisId, notation, onBack, onOpenTuner }: Pr
       fileName: youtube ? undefined : analysis.source_ref,
       onPickFile: (file) => setFileUrl(rememberFile(analysisId, file)),
       altTuning: analysis.alt_tuning,
-      suggestedCapo: analysis.suggested_capo ?? 0,
       onOpenTuner,
     };
   }, [analysis, analysisId, fileUrl, onOpenTuner]);
@@ -62,10 +61,7 @@ export function AnalysisPlayer({ analysisId, notation, onBack, onOpenTuner }: Pr
     return <PlayerLoading failed={failed} onRetry={() => setAttempt((n) => n + 1)} />;
   }
   return (
-    <>
-      <BrowserBack onBack={onBack} />
-      {/* A newly picked file remounts the player: fresh <audio>, loop and position. */}
-      <Player key={fileUrl ?? "none"} model={model} notation={notation} />
-    </>
+    // A newly picked file remounts the player: fresh <audio>, loop and position.
+    <Player key={fileUrl ?? "none"} model={model} notation={notation} />
   );
 }

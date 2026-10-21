@@ -114,9 +114,6 @@ export function SongForm({ songId, notation, onBack, onCreated, onMarkChords }: 
 
   return (
     <div className="page songs-page form-page">
-      <button type="button" className="back-link" onClick={onBack}>
-        ‹ {t.songs.back}
-      </button>
       <span className="editor-admin">{t.admin.label}</span>
       <h1 className="songs-h1">{songId === null ? t.admin.form.newTitle : t.admin.form.editTitle}</h1>
 

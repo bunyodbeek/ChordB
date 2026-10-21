@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<title>ChordB — Pleyer (minimal)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&amp;family=IBM+Plex+Mono:wght@500;600&amp;display=swap">
+<style>
+body{margin:0;background:#F4F5F2}
+a{color:#2F5BFF}a:hover{color:#1F3FCC}
+button{font-family:inherit;cursor:pointer}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F2; color: #15171A; font-family: 'Bricolage Grotesque', sans-serif; display: flex; flex-direction: column; overflow: hidden">
+  <header style="flex: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; height: 80px; box-sizing: border-box; padding: 0 16px; background: #FFFFFF; border-bottom: 1px solid #E3E5E0">
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+      <h1 style="margin: 0; font-weight: 800; font-size: 26px; letter-spacing: -0.03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Lily</h1>
+      <span style="font-size: 13px; color: #5B6068; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Alan Walker · cover</span>
+    </div>
+    <span title="Akkordlar avtomatik aniqlangan" style="flex: none; height: 26px; display: inline-flex; align-items: center; padding: 0 8px; border-radius: 8px; background: #E3E9FF; color: #1F3FCC; font-size: 12px; font-weight: 600">Avto</span>
+  </header>
+  <div style="display: flex; flex-direction: column; gap: 14px; padding: 14px 16px 0">
+
+    <div aria-hidden="true" style="width: 358px; height: 201px; flex: none; border-radius: 16px; background: #1D2026; display: flex; align-items: center; justify-content: center; color: #8A8F96; font-family: 'IBM Plex Mono', monospace; font-size: 11px">YouTube (boshqaruvlarsiz)</div>
+
+    <button type="button" onClick="{{toggleCapo}}" aria-pressed="{{capoPressed}}" style="display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 8px 12px; border-radius: 14px; border: 1px solid {{capoBorder}}; background: {{capoBg}}; color: #15171A; text-align: left">
+      <span aria-hidden="true" style="width: 32px; height: 32px; flex: none; border-radius: 10px; background: #FFFFFF; border: 1px solid #DADCD6; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 13px">{{capoNum}}</span>
+      <span style="flex: 1; display: flex; flex-direction: column">
+        <span style="font-weight: 600; font-size: 14px">{{capoTitle}}</span>
+        <span style="font-size: 12px; color: #5B6068">{{capoSub}}</span>
+      </span>
+    </button>
+
+    <div style="display: grid; grid-template-columns: 1.35fr 1fr; gap: 10px">
+      <sc-for list="{{pair}}" as="c" hint-placeholder-count="2">
+        <div style="display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 18px; background: {{c.bg}}; color: {{c.fg}}; border: 1px solid {{c.border}}">
+          <div role="img" aria-label="{{c.aria}}" style="position: relative; width: {{c.w}}px; height: {{c.h}}px; flex: none">
+            <sc-for list="{{c.tops}}" as="t" hint-placeholder-count="6">
+              <div style="position: absolute; left: {{t.x}}px; top: 0; width: 12px; margin-left: -6px; text-align: center; font-size: 10px; line-height: 10px">{{t.label}}</div>
+            </sc-for>
+            <div style="position: absolute; left: 0; top: 14px; width: {{c.gridW}}px; height: {{c.nutH}}px; background: {{c.fg}}"></div>
+            <sc-for list="{{c.frets}}" as="f" hint-placeholder-count="4">
+              <div style="position: absolute; left: 0; top: {{f.y}}px; width: {{c.gridW}}px; height: 1px; background: {{c.line}}"></div>
+            </sc-for>
+            <sc-for list="{{c.strs}}" as="s" hint-placeholder-count="6">
+              <div style="position: absolute; left: {{s.x}}px; top: 14px; width: 1px; height: {{c.gridH}}px; background: {{c.line}}"></div>
+            </sc-for>
+            <sc-if value="{{c.hasBarre}}" hint-placeholder-val="{{ true }}">
+              <div style="position: absolute; left: {{c.barreX}}px; top: {{c.barreY}}px; width: {{c.barreW}}px; height: {{c.dot}}px; margin-top: {{c.dotM}}px; border-radius: 6px; background: {{c.dotColor}}"></div>
+            </sc-if>
+            <sc-for list="{{c.dots}}" as="d" hint-placeholder-count="3">
+              <div style="position: absolute; left: {{d.x}}px; top: {{d.y}}px; width: {{c.dot}}px; height: {{c.dot}}px; margin-left: {{c.dotM}}px; margin-top: {{c.dotM}}px; border-radius: 50%; background: {{c.dotColor}}"></div>
+            </sc-for>
+            <sc-if value="{{c.hasBase}}" hint-placeholder-val="{{ true }}">
+              <div style="position: absolute; left: {{c.baseX}}px; top: {{c.baseY}}px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600">{{c.base}}</div>
+            </sc-if>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+            <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase">{{c.label}}</span>
+            <span style="font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: {{c.size}}px; line-height: 1">{{c.name}}</span>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="display: flex; gap: 6px; overflow: hidden" aria-label="Akkordlar ketma-ketligi">
+      <sc-for list="{{strip}}" as="s" hint-placeholder-count="8">
+        <button type="button" aria-label="{{s.aria}}" onClick="{{s.seek}}" style="flex: none; min-width: 56px; height: 44px; padding: 0 10px; border-radius: 10px; border: 1px solid {{s.border}}; background: {{s.bg}}; color: {{s.fg}}; font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 15px">{{s.c}}</button>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="flex: 1"></div>
+
+  <div style="flex: none; display: flex; align-items: center; gap: 12px; height: 80px; box-sizing: border-box; padding: 0 16px; background: #15171A; color: #FFFFFF">
+    <button type="button" aria-label="{{playAria}}" onClick="{{togglePlay}}" style="width: 48px; height: 48px; flex: none; border-radius: 50%; border: 0; background: #2F5BFF; color: #FFFFFF; display: inline-flex; align-items: center; justify-content: center">
+      <sc-if value="{{playing}}" hint-placeholder-val="{{ true }}">
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+      </sc-if>
+      <sc-if value="{{paused}}" hint-placeholder-val="{{ false }}">
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+      </sc-if>
+    </button>
+    <div style="flex: 1; display: flex; flex-direction: column; gap: 6px">
+      <div style="height: 4px; border-radius: 2px; background: #3A3D42"><div style="width: {{progress}}%; height: 4px; border-radius: 2px; background: #8FA8FF"></div></div>
+      <div style="display: flex; justify-content: space-between; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #C4C7C1"><span>{{timeNow}}</span><span>3:15</span></div>
+    </div>
+    <button type="button" aria-label="Sozlamalar: tezlik, ton, takrorlash" style="width: 44px; height: 44px; flex: none; border-radius: 12px; border: 1px solid #3A3D42; background: none; color: #FFFFFF; display: inline-flex; align-items: center; justify-content: center">
+      <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { cur: 3, capo: false, playing: true }; }
+  renderVals() {
+    const accent = '#2F5BFF';
+    const seq = ['Fm', 'Bbm', 'Eb', 'Ab', 'Eb', 'Fm', 'Eb', 'Fm', 'Bbm', 'Eb'];
+    const CAPO1 = { 'Fm': 'Em', 'Bbm': 'Am', 'Eb': 'D', 'Ab': 'G' };
+    const SHAPES = {
+      'Fm': [1, 3, 3, 1, 1, 1], 'Bbm': ['x', 1, 3, 3, 2, 1], 'Eb': ['x', 6, 8, 8, 8, 6], 'Ab': [4, 6, 6, 5, 4, 4],
+      'Em': [0, 2, 2, 0, 0, 0], 'Am': ['x', 0, 2, 2, 1, 0], 'D': ['x', 'x', 0, 2, 3, 2], 'G': [3, 2, 0, 0, 0, 3]
+    };
+    const capo = this.state.capo;
+    const name = (ch) => (capo ? CAPO1[ch] : ch);
+    const diag = (ch, big, on) => {
+      const s = SHAPES[name(ch)];
+      const sp = big ? 12 : 10, fr = big ? 16 : 13, top = 14;
+      const nums = s.filter((v) => typeof v === 'number' && v > 0);
+      const minF = nums.length ? Math.min.apply(null, nums) : 0;
+      const maxF = nums.length ? Math.max.apply(null, nums) : 0;
+      const base = maxF > 4 || (minF > 1 && !s.includes(0)) ? minF : 1;
+      const isBarre = s.filter((v) => v === minF).length >= 2 && !s.includes(0) && minF > 0;
+      const rel = (v) => v - base + 1;
+      const barreIdx = s.map((v, i) => (v === minF ? i : -1)).filter((i) => i >= 0);
+      const dots = s.map((v, i) => ({ v, i })).filter((p) => typeof p.v === 'number' && p.v > 0 && !(isBarre && p.v === minF))
+        .map((p) => ({ x: p.i * sp, y: top + (rel(p.v) - 0.5) * fr }));
+      const dot = big ? 12 : 10;
+      return {
+        w: 5 * sp + 8, h: top + 4 * fr + 18, gridW: 5 * sp + 1, gridH: 4 * fr,
+        nutH: base === 1 ? 3 : 1,
+        tops: s.map((v, i) => ({ x: i * sp, label: v === 'x' ? '×' : (v === 0 ? '○' : '') })),
+        frets: [1, 2, 3, 4].map((k) => ({ y: top + k * fr })),
+        strs: [0, 1, 2, 3, 4, 5].map((i) => ({ x: i * sp })),
+        dots, dot, dotM: -dot / 2,
+        hasBarre: isBarre, barreX: barreIdx.length ? barreIdx[0] * sp - dot / 2 : 0,
+        barreW: barreIdx.length ? (barreIdx[barreIdx.length - 1] - barreIdx[0]) * sp + dot : 0,
+        barreY: top + (rel(minF) - 0.5) * fr,
+        hasBase: base > 1, base: base + '-lad', baseX: 0, baseY: top + 4 * fr + 3,
+        dotColor: on ? '#FFFFFF' : accent
+      };
+    };
+    const cur = this.state.cur;
+    const now = seq[cur], next = seq[(cur + 1) % seq.length];
+    const prog = Math.round(((cur + 0.5) / seq.length) * 100);
+    const secs = Math.round(195 * prog / 100);
+    return {
+      capoPressed: capo ? 'true' : 'false',
+      capoBg: capo ? '#DDF0E7' : '#FFFFFF',
+      capoBorder: capo ? '#9FD6BE' : '#DADCD6',
+      capoNum: capo ? '1' : '0',
+      capoTitle: capo ? 'Kapo 1-ladda · oson akkordlar' : 'Osonroq chalish: kapo 1-ladga',
+      capoSub: capo ? 'Asl akkordlarga qaytish uchun bosing' : 'Fm Bbm Eb Ab → Em Am D G',
+      toggleCapo: () => this.setState({ capo: !capo }),
+      pair: [
+        Object.assign({ label: 'Hozir', name: name(now), aria: name(now) + ' akkordi diagrammasi', bg: accent, fg: '#FFFFFF', border: accent, line: 'rgba(255,255,255,0.45)', size: 34 }, diag(now, true, true)),
+        Object.assign({ label: 'Keyin', name: name(next), aria: name(next) + ' akkordi diagrammasi', bg: '#FFFFFF', fg: '#15171A', border: '#DADCD6', line: '#C4C7C1', size: 24 }, diag(next, false, false))
+      ],
+      strip: seq.slice(Math.max(0, cur - 1), Math.max(0, cur - 1) + 6).map((c, k) => {
+        const idx = Math.max(0, cur - 1) + k;
+        const on = idx === cur;
+        return {
+          c: name(c), aria: name(c) + ' — shu joyga oʻtish',
+          bg: on ? accent : '#FFFFFF', fg: on ? '#FFFFFF' : (idx < cur ? '#8A8F96' : '#15171A'),
+          border: on ? accent : '#E3E5E0', seek: () => this.setState({ cur: idx })
+        };
+      }),
+      progress: prog,
+      timeNow: Math.floor(secs / 60) + ':' + String(secs % 60).padStart(2, '0'),
+      playing: this.state.playing, paused: !this.state.playing,
+      playAria: this.state.playing ? 'Pauza' : 'Ijro etish',
+      togglePlay: () => this.setState({ playing: !this.state.playing })
+    };
+  }
+}
+</script>
+</body>
+</html>

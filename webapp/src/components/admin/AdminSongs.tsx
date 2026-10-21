@@ -31,9 +31,6 @@ export function AdminSongs({ onBack, onOpen, onNew }: Props) {
 
   return (
     <div className="page songs-page">
-      <button type="button" className="back-link" onClick={onBack}>
-        ‹ {t.songs.back}
-      </button>
       <span className="editor-admin">{t.admin.label}</span>
       <h1 className="songs-h1">{t.admin.songsTitle}</h1>
       <button type="button" className="button wide" onClick={onNew}>

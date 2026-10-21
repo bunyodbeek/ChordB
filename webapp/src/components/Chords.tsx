@@ -6,6 +6,7 @@ import { haptic } from "../telegram";
 import { t } from "../texts";
 import { ChordCard } from "./ChordCard";
 import { NotationToggle } from "./NotationToggle";
+import { Screen } from "./Screen";
 import { SoundStatus } from "./SoundStatus";
 
 const ROOTS = Array.from({ length: 12 }, (_, pc) => pc);
@@ -20,15 +21,11 @@ export function Chords({ notation, onNotationChange }: Props) {
   const flat = prefersFlat(root);
 
   return (
-    <div className="page">
-      <header className="tuner-header">
-        <div>
-          <h1>{t.tabs.chords}</h1>
-          <div className="subtitle">{t.chordsHint}</div>
-        </div>
-        <NotationToggle value={notation} onChange={onNotationChange} />
-      </header>
-
+    <Screen
+      title={t.tabs.chords}
+      right={<NotationToggle value={notation} onChange={onNotationChange} />}
+      bodyClassName="chords-body"
+    >
       <SoundStatus />
 
       <div className="chips" role="radiogroup">
@@ -48,11 +45,11 @@ export function Chords({ notation, onNotationChange }: Props) {
         ))}
       </div>
 
-      <div className="chord-grid">
+      <div className="chord-grid scroll-y">
         {QUALITIES.map((quality) => (
           <ChordCard key={quality} chord={{ root, quality, flat }} notation={notation} />
         ))}
       </div>
-    </div>
+    </Screen>
   );
 }

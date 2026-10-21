@@ -1,4 +1,4 @@
-// Songs list — follows songs-list.reference.html.
+// Songs list — follows songs-list-v2.reference.html.
 import { useEffect, useState } from "react";
 
 import { api, type ChordJson, type SongSummary, type SongsResponse } from "../api";
@@ -6,7 +6,7 @@ import { spelled } from "../chords";
 import { formatChord, type NotationKind } from "../notation";
 import { haptic } from "../telegram";
 import { t } from "../texts";
-import { AnalyzeCard } from "./AnalyzeCard";
+import { Screen } from "./Screen";
 
 type FilterKey = "easy" | "uzbek" | "no_capo";
 const FILTERS: FilterKey[] = ["easy", "uzbek", "no_capo"];
@@ -30,10 +30,10 @@ interface Props {
   onOpen: (song: SongSummary) => void;
   onLocked: (song: SongSummary) => void;
   onAdmin?: () => void; // admins only: song management
-  onOpenAnalysis: (analysisId: number) => void;
+  onAnalyze: () => void; // "Akkordlarni aniqlash": its own screen
 }
 
-export function SongsList({ notation, isAdmin, onOpen, onLocked, onAdmin, onOpenAnalysis }: Props) {
+export function SongsList({ notation, isAdmin, onOpen, onLocked, onAdmin, onAnalyze }: Props) {
   const [q, setQ] = useState("");
   const [filters, setFilters] = useState(NO_FILTERS);
   const [data, setData] = useState<SongsResponse | null>(null);
@@ -70,21 +70,24 @@ export function SongsList({ notation, isAdmin, onOpen, onLocked, onAdmin, onOpen
   };
   const cont = data?.continue_playing;
 
-  return (
-    <div className="page songs-page">
-      {onAdmin ? (
-        <div className="songs-h1-row">
-          <h1 className="songs-h1">{t.tabs.songs}</h1>
-          <button type="button" className="control small" onClick={onAdmin}>
-            {t.admin.label}
-          </button>
-        </div>
-      ) : (
-        <h1 className="songs-h1">{t.tabs.songs}</h1>
+  const right = (
+    <>
+      {onAdmin && (
+        <button type="button" className="bar-chip" onClick={onAdmin}>
+          {t.admin.label}
+        </button>
       )}
+      <button type="button" className="bar-icon" aria-label={t.analyze.title} onClick={onAnalyze}>
+        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          strokeWidth="2" strokeLinecap="round">
+          <path d="M3 12h2M7 8v8M11 5v14M15 9v6M19 11v2" />
+        </svg>
+      </button>
+    </>
+  );
 
-      <AnalyzeCard notation={notation} onOpen={onOpenAnalysis} />
-
+  return (
+    <Screen title={t.tabs.songs} right={right} bodyClassName="songs-body">
       <div className="search">
         <label htmlFor="qs" className="sr-only">
           {t.songs.searchLabel}
@@ -160,7 +163,7 @@ export function SongsList({ notation, isAdmin, onOpen, onLocked, onAdmin, onOpen
         </button>
       )}
 
-      <div className="song-list">
+      <div className="song-list scroll-y">
         {failed ? (
           <div className="song-list-note">
             <p>{t.loadFailed}</p>
@@ -222,6 +225,6 @@ export function SongsList({ notation, isAdmin, onOpen, onLocked, onAdmin, onOpen
           ))
         )}
       </div>
-    </div>
+    </Screen>
   );
 }

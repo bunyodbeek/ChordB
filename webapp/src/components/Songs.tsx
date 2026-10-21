@@ -1,11 +1,15 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { SongSummary } from "../api";
 import type { NotationKind } from "../notation";
+import { inTelegram, useBackButton } from "../telegram";
+import { t } from "../texts";
 import type { PresetId } from "../tuning";
+import { AnalyzeCard } from "./AnalyzeCard";
 import { AdminSongs } from "./admin/AdminSongs";
 import { AnalysisPlayer } from "./AnalysisPlayer";
 import { PremiumSheet } from "./PremiumSheet";
+import { Screen } from "./Screen";
 import { ChordEditor } from "./admin/ChordEditor";
 import { SongForm } from "./admin/SongForm";
 import { SongPlayer } from "./SongPlayer";
@@ -15,6 +19,7 @@ type View =
   | { name: "list" }
   | { name: "player"; id: number }
   | { name: "analysis"; id: number }
+  | { name: "analyze" }
   | { name: "admin" }
   | { name: "form"; id: number | null }
   | { name: "editor"; id: number };
@@ -41,10 +46,32 @@ export function Songs({ notation, isAdmin, onFullscreen, onOpenTuner }: Props) {
   const [paywall, setPaywall] = useState<SongSummary | null>(null);
   const view = stack[stack.length - 1];
 
-  const push = useCallback((v: View) => setStack((s) => [...s, v]), []);
+  const pop = useCallback(() => setStack((s) => (s.length > 1 ? s.slice(0, -1) : s)), []);
+  // Inside Telegram its BackButton pops. In a plain browser (local testing) the browser's
+  // own back button does, through history entries; the screens never draw one.
+  const depth = useRef(1); // history entries this stack pushed, +1
+  useEffect(() => {
+    if (inTelegram) return;
+    const onPop = () => {
+      depth.current = Math.max(1, depth.current - 1);
+      pop();
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [pop]);
+  const push = useCallback((v: View) => {
+    if (!inTelegram) {
+      history.pushState({ songs: true }, "");
+      depth.current++;
+    }
+    setStack((s) => [...s, v]);
+  }, []);
   const replace = useCallback((v: View) => setStack((s) => [...s.slice(0, -1), v]), []);
   // Stable, so Telegram's back button and child effects aren't re-run every render.
-  const back = useCallback(() => setStack((s) => (s.length > 1 ? s.slice(0, -1) : s)), []);
+  const back = useCallback(() => {
+    if (!inTelegram && depth.current > 1) history.back(); // popstate pops the screen
+    else pop();
+  }, [pop]);
 
   useEffect(() => {
     onFullscreen(view.name !== "list");
@@ -62,7 +89,16 @@ export function Songs({ notation, isAdmin, onFullscreen, onOpenTuner }: Props) {
           onOpen={(s) => push({ name: "player", id: s.id })}
           onLocked={setPaywall}
           onAdmin={isAdmin ? () => push({ name: "admin" }) : undefined}
-          onOpenAnalysis={(id) => push({ name: "analysis", id })}
+          onAnalyze={() => push({ name: "analyze" })}
+        />
+      );
+      break;
+    case "analyze":
+      screen = (
+        <AnalyzeScreen
+          notation={notation}
+          onBack={back}
+          onOpen={(id) => push({ name: "analysis", id })}
         />
       );
       break;
@@ -120,5 +156,22 @@ export function Songs({ notation, isAdmin, onFullscreen, onOpenTuner }: Props) {
       {screen}
       {paywall && <PremiumSheet song={paywall} onClose={() => setPaywall(null)} />}
     </>
+  );
+}
+
+function AnalyzeScreen({
+  notation,
+  onBack,
+  onOpen,
+}: {
+  notation: NotationKind;
+  onBack: () => void;
+  onOpen: (analysisId: number) => void;
+}) {
+  useBackButton(onBack);
+  return (
+    <Screen title={t.analyze.title} bodyClassName="scroll-y padded">
+      <AnalyzeCard notation={notation} onOpen={onOpen} />
+    </Screen>
   );
 }

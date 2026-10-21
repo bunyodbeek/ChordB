@@ -1,38 +1,60 @@
+// Cents meter — tuner-v2.reference.html: 358×64, a tick every 5 cents (3.4 px per cent),
+// long ticks every 25, a green zone around 0. The value is only exposed to assistive
+// tech (role="meter"); nothing is printed.
 import { t } from "../texts";
 import { IN_TUNE_CENTS } from "../tuning";
 
-const RANGE = 50; // cents shown on each side
+const RANGE = 50;
+const W = 358;
+const PX_PER_CENT = 3.4;
+const ZONE_W = 16;
 
-// One tick every 5 cents; longer every 25 and at the ends.
-const TICKS = Array.from({ length: 21 }, (_, i) => i);
+const x = (cents: number) =>
+  ((W / 2 + Math.max(-RANGE, Math.min(RANGE, cents)) * PX_PER_CENT) / W) * 100;
 
-const pos = (cents: number) => 50 + (Math.max(-RANGE, Math.min(RANGE, cents)) / RANGE) * 50;
+const TICKS = Array.from({ length: 21 }, (_, i) => -RANGE + i * 5);
 
-/** Horizontal cents meter: needle left of center is flat, right is sharp. */
-export function Meter({ cents }: { cents: number | null }) {
+interface Props {
+  cents: number | null; // null: nothing heard
+  label: string; // the string's name, for the value text
+}
+
+export function Meter({ cents, label }: Props) {
   const inTune = cents !== null && Math.abs(cents) <= IN_TUNE_CENTS;
-  const zone = (IN_TUNE_CENTS / RANGE) * 50;
+  const rounded = cents === null ? 0 : Math.round(Math.max(-RANGE, Math.min(RANGE, cents)));
+  const text =
+    cents === null
+      ? t.meter.silent
+      : inTune
+        ? t.meter.inTune(label)
+        : rounded < 0
+          ? t.meter.flat(label, -rounded)
+          : t.meter.sharp(label, rounded);
 
   return (
-    <div className="meter" aria-hidden="true">
-      <div className="meter-scale">
-        <div className="meter-zone" style={{ left: `${50 - zone}%`, width: `${2 * zone}%` }} />
-        {TICKS.map((i) => (
-          <span
-            key={i}
-            className={`meter-tick${i % 5 === 0 ? " major" : ""}`}
-            style={{ left: `${i * 5}%` }}
-          />
-        ))}
-        <div
-          className={`meter-needle${cents === null ? " idle" : ""}${inTune ? " in-tune" : ""}`}
-          style={{ left: `${cents === null ? 50 : pos(cents)}%` }}
+    <div
+      className="meter"
+      role="meter"
+      aria-label={t.meter.label}
+      aria-valuemin={-RANGE}
+      aria-valuemax={RANGE}
+      aria-valuenow={rounded}
+      aria-valuetext={text}
+    >
+      <div className="meter-zone" style={{ left: `${((W - ZONE_W) / 2 / W) * 100}%`, width: `${(ZONE_W / W) * 100}%` }} />
+      {TICKS.map((c) => (
+        <span
+          key={c}
+          className={`meter-tick${c % 25 === 0 ? " major" : ""}${c === 0 ? " zero" : ""}`}
+          style={{ left: `${x(c)}%` }}
         />
-      </div>
-      <div className="meter-labels">
-        <span>{t.low}</span>
-        <span>{t.high}</span>
-      </div>
+      ))}
+      <div
+        className={`meter-needle${cents === null ? " idle" : inTune ? " in-tune" : ""}`}
+        style={{ left: `${x(cents ?? 0)}%` }}
+      />
+      <span className="meter-label low">{t.low}</span>
+      <span className="meter-label high">{t.high}</span>
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api, type Me, type Settings } from "./api";
 import { Chords } from "./components/Chords";
 import { NotationPicker } from "./components/NotationPicker";
+import { Practice } from "./components/Practice";
 import { Profile } from "./components/Profile";
 import { Songs, openSongOnLaunch } from "./components/Songs";
 import { TabBar, type Tab } from "./components/TabBar";
@@ -31,7 +32,6 @@ export default function App() {
     (id: PresetId) => {
       changePreset(id);
       setTab("tuner");
-      window.scrollTo(0, 0);
     },
     [changePreset],
   );
@@ -116,6 +116,7 @@ export default function App() {
             onNotationChange={(notation) => updateSettings({ notation })}
           />
         )}
+        {tab === "practice" && <Practice />}
         {tab === "songs" && (
           <Songs
             notation={me.settings.notation}
@@ -127,13 +128,7 @@ export default function App() {
         {tab === "profile" && <Profile me={me} onChange={updateSettings} />}
       </main>
       {!fullscreen && (
-        <TabBar
-          tab={tab}
-          onChange={(next) => {
-            setTab(next);
-            window.scrollTo(0, 0);
-          }}
-        />
+        <TabBar tab={tab} onChange={setTab} />
       )}
     </div>
   );

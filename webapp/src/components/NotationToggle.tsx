@@ -1,5 +1,6 @@
 import type { NotationKind } from "../notation";
 import { haptic } from "../telegram";
+import { t } from "../texts";
 
 const OPTIONS: { kind: NotationKind; label: string }[] = [
   { kind: "letter", label: "ABC" },
@@ -14,13 +15,13 @@ export function NotationToggle({
   onChange: (n: NotationKind) => void;
 }) {
   return (
-    <div className="segmented" role="radiogroup">
+    <div className="notation-toggle" role="radiogroup" aria-label={t.notationLabel}>
       {OPTIONS.map(({ kind, label }) => (
         <button
           key={kind}
           role="radio"
           aria-checked={value === kind}
-          className={value === kind ? "selected" : ""}
+          className={kind === "letter" ? "mono" : ""}
           onClick={() => {
             if (value === kind) return;
             haptic.tap();

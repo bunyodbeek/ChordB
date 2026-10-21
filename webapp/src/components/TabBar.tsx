@@ -3,9 +3,9 @@ import type { ReactNode } from "react";
 import { haptic } from "../telegram";
 import { t } from "../texts";
 
-export type Tab = "tuner" | "chords" | "songs" | "profile";
+export type Tab = "tuner" | "chords" | "practice" | "songs" | "profile";
 
-// Icons and layout follow songs-list.reference.html.
+// Icons and layout follow the *-v2.reference.html designs.
 const icon = (children: ReactNode) => (
   <svg
     aria-hidden="true"
@@ -38,6 +38,16 @@ const TABS: { id: Tab; icon: ReactNode }[] = [
       <>
         <rect x="5" y="4" width="14" height="16" rx="2" />
         <path d="M9.5 4v16M14.5 4v16M5 9h14M5 14h14" />
+      </>,
+    ),
+  },
+  {
+    id: "practice",
+    icon: icon(
+      <>
+        <circle cx="12" cy="12" r="8" />
+        <circle cx="12" cy="12" r="4" />
+        <circle cx="12" cy="12" r="0.5" fill="currentColor" />
       </>,
     ),
   },

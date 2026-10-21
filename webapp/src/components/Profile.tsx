@@ -6,6 +6,7 @@ import { haptic } from "../telegram";
 import { t } from "../texts";
 import { NotationToggle } from "./NotationToggle";
 import { PremiumSheet } from "./PremiumSheet";
+import { Screen } from "./Screen";
 
 interface Props {
   me: Me;
@@ -24,11 +25,7 @@ export function Profile({ me, onChange }: Props) {
   const [sheet, setSheet] = useState(false);
 
   return (
-    <div className="page">
-      <header className="page-header">
-        <h1>{t.tabs.profile}</h1>
-      </header>
-
+    <Screen title={t.tabs.profile} bodyClassName="scroll-y padded">
       <div className="card profile-card">
         {me.photo_url ? (
           <img className="avatar" src={me.photo_url} alt="" />
@@ -89,6 +86,6 @@ export function Profile({ me, onChange }: Props) {
       )}
 
       {sheet && <PremiumSheet onClose={() => setSheet(false)} />}
-    </div>
+    </Screen>
   );
 }
