@@ -9,6 +9,7 @@ ChordB is a guitar tuner that runs as a Telegram Mini App.
 | `bot/` | aiogram 3 bot (long polling) and scheduled notifications (APScheduler) |
 | `webapp/` | React, Vite and TypeScript Mini App: the guitar tuner |
 | `deploy/` | Nginx config for the VPS |
+| `scripts/` | `dev.sh`: runs the whole stack locally |
 
 The Python packages form a [uv](https://docs.astral.sh/uv/) workspace with a single `uv.lock`.
 
@@ -63,12 +64,28 @@ In `ENV=dev`, interactive docs are at `/api/docs`.
 
 ## Local development
 
-You need Python 3.12 or newer, [uv](https://docs.astral.sh/uv/getting-started/installation/), Docker, and Node 20 or newer (Node is only needed for the webapp).
+You need Python 3.12 or newer, [uv](https://docs.astral.sh/uv/getting-started/installation/), Docker, ffmpeg and Node 20 or newer (Node is only needed for the webapp). On Ubuntu: `sudo apt install -y ffmpeg`, and uv and Node from their own installers.
 
 ```bash
 cp .env.example .env          # put your BOT_TOKEN in
 uv sync --all-packages        # creates .venv with all workspace packages
+(cd webapp && npm ci)        # npm install would rewrite package-lock.json
+```
 
+`scripts/dev.sh` then runs the whole stack — Postgres, the migrations, the API, the chord-detection worker, the webapp, an HTTPS tunnel and the bot — and stops all of it on Ctrl+C:
+
+```bash
+scripts/dev.sh                # everything; logs land in logs/
+scripts/dev.sh --no-bot       # leave the bot alone (only one process may poll a token)
+scripts/dev.sh --no-tunnel    # browser only; Telegram cannot reach the app without it
+scripts/dev.sh --keep-db      # leave the Postgres container up when stopping
+```
+
+It writes the tunnel URL into `.env` as `WEBAPP_URL` and onto the bot's menu button, so the bot always opens the app that is running. `TUNNEL` in `.env` picks the tunnel (see [Testing inside Telegram](#testing-inside-telegram-https-tunnel)).
+
+The pieces by hand:
+
+```bash
 # Postgres (or point DATABASE_URL at your own)
 docker compose --profile local up -d postgres
 
@@ -77,6 +94,10 @@ cd backend
 uv run alembic upgrade head
 uv run uvicorn app.main:app --reload --port 8001
 ```
+
+The container publishes `127.0.0.1:${POSTGRES_PORT}:5432`, default 5432. If another project on the machine already uses that port, set `POSTGRES_PORT` in `.env` to a free one and change the port in `DATABASE_URL` and `TEST_DATABASE_URL` to match.
+
+Windows: `start.ps1` / `stop.ps1` (and the `.bat` launchers) still do the same job there. They expect a [pgserver](https://pypi.org/project/pgserver/) Postgres under `%LOCALAPPDATA%\chordb-pg` rather than the container, and cloudflared for the tunnel.
 
 ### Running the webapp
 
@@ -212,11 +233,11 @@ curl -X PATCH -H "Authorization: tma $TMA" -H 'content-type: application/json' \
 ### Tests
 
 ```bash
-docker compose --profile local exec postgres createdb -U chordb chordb_test   # once
+docker compose exec postgres createdb -U chordb chordb_test   # once; scripts/dev.sh also does it
 uv run pytest            # from the repo root: common, backend and bot tests
 ```
 
-The database tests run the real Alembic migrations against `TEST_DATABASE_URL`, and they **wipe that database**. If it can't be reached, those tests are skipped and the pure tests (initData, notation, rate limiter) still run. The bot tests feed real Telegram updates through the aiogram dispatcher with a mocked Telegram API, so they need no token or network.
+The database tests run the real Alembic migrations against `TEST_DATABASE_URL`, and they **wipe that database**. `conftest.py` takes that URL from the environment, then from `.env`, then falls back to `127.0.0.1:5432`. If it can't be reached, those tests are skipped and the pure tests (initData, notation, rate limiter) still run. The bot tests feed real Telegram updates through the aiogram dispatcher with a mocked Telegram API, so they need no token or network.
 
 ### Everything in Docker
 
@@ -226,12 +247,21 @@ docker compose --profile local up --build
 
 ### Testing inside Telegram (HTTPS tunnel)
 
-Telegram only opens Mini Apps over HTTPS, so expose your local server through a tunnel:
+Telegram only opens Mini Apps over HTTPS, so expose your local server through a tunnel. `scripts/dev.sh` starts one and does steps 1 and 3 below for you; `TUNNEL` in `.env` picks which:
+
+cloudflared is a single binary and needs no root:
 
 ```bash
-# Cloudflare quick tunnel: no account needed, gives a random https://*.trycloudflare.com URL
+curl -fsSL -o ~/.local/bin/cloudflared \
+  https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
+chmod +x ~/.local/bin/cloudflared
+```
+
+```bash
+# cloudflared (the default): no account needed, random https://*.trycloudflare.com URL
 cloudflared tunnel --url http://localhost:5173      # Vite dev server; /api is proxied through it
-# or: ngrok http 5173
+# ngrok: TUNNEL=ngrok, plus NGROK_DOMAIN for a reserved domain
+ngrok http 5173
 ```
 
 1. Set `WEBAPP_URL` in `.env` to the tunnel URL.
@@ -239,6 +269,8 @@ cloudflared tunnel --url http://localhost:5173      # Vite dev server; /api is p
 3. Restart the bot (phase 2+), then open it in Telegram.
 
 A quick tunnel's URL changes on every restart. Use a named Cloudflare tunnel or a reserved ngrok domain if you want a stable one.
+
+**ngrok on the free plan does not work for this.** Free ngrok domains answer *every* request, `/api/*` included, with the "You are about to visit ..." interstitial (`ERR_NGROK_6024`), and that page is what Telegram's webview shows instead of the Mini App. The `ngrok-skip-browser-warning` header bypasses it, but only a client you control can send it, and a traffic policy that adds the header does not help: the edge serves the interstitial before the policy runs. Use cloudflared, or a paid ngrok plan.
 
 ## Production (chordb.shredzville.com)
 
@@ -552,8 +584,8 @@ curl -H "Authorization: tma $TMA" localhost:8001/api/analyze/history
 
 ffmpeg is a system dependency. Both `ffmpeg` and `ffprobe` must be on `PATH`.
 
-- **Windows:** `winget install Gyan.FFmpeg`, then open a new terminal and check with `ffmpeg -version`. Or download the "release essentials" build from https://www.gyan.dev/ffmpeg/builds/ and add its `bin` folder to `PATH`.
-- **Ubuntu server:** `sudo apt update && sudo apt install -y ffmpeg`, then `ffmpeg -version`.
+- **Ubuntu (dev machine and server):** `sudo apt update && sudo apt install -y ffmpeg`, then `ffmpeg -version`.
+- **Windows:** `winget install Gyan.FFmpeg`, then open a new terminal and check with `ffmpeg -version`.
 
 Without ffmpeg the analysis fails with `ffmpeg_missing`, and the one test that decodes real files is skipped.
 
