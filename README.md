@@ -1,4 +1,4 @@
-# ChordB
+    # ChordB
 
 ChordB is a guitar tuner that runs as a Telegram Mini App.
 

@@ -32,6 +32,9 @@ export function useTuner() {
     // Created inside the tap handler, before any await: iOS only allows audio to
     // start from a user gesture.
     const ctx = new AudioContext();
+    // Resume while still inside the gesture too: after the await below, some
+    // WebViews (Telegram on iOS) refuse and leave the context suspended, silent.
+    void ctx.resume();
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({
@@ -49,6 +52,15 @@ export function useTuner() {
     const analyser = ctx.createAnalyser();
     analyser.fftSize = FFT_SIZE;
     ctx.createMediaStreamSource(stream).connect(analyser);
+    // WebKit only processes nodes that reach the destination; route through a
+    // muted gain so the analyser gets data without playing the mic back.
+    const mute = ctx.createGain();
+    mute.gain.value = 0;
+    analyser.connect(mute).connect(ctx.destination);
+    // Opening the mic can interrupt the audio session (iOS); pick it back up.
+    ctx.onstatechange = () => {
+      if (ctx.state !== "running" && ctx.state !== "closed") void ctx.resume();
+    };
     const buf = new Float32Array(FFT_SIZE);
 
     const history: number[] = [];
@@ -77,6 +89,7 @@ export function useTuner() {
 
     stopRef.current = () => {
       cancelAnimationFrame(raf);
+      ctx.onstatechange = null;
       stream.getTracks().forEach((track) => track.stop());
       void ctx.close();
     };

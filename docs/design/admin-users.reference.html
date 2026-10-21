@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<title>ChordB Admin — Foydalanuvchilar</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&amp;family=IBM+Plex+Mono:wght@500;600&amp;display=swap">
+<style>
+body{margin:0;background:#F4F5F2}
+a{color:#1F3FCC}a:hover{color:#15309E}
+button{font-family:inherit;cursor:pointer}
+input::placeholder,textarea::placeholder{color:#6B7078}
+</style>
+</helmet>
+<div style="min-height: 100vh; box-sizing: border-box; background: #F4F5F2; color: #15171A; font-family: 'Bricolage Grotesque', sans-serif; display: flex; flex-wrap: wrap; align-items: stretch">
+
+  <aside style="flex: 1 1 220px; box-sizing: border-box; padding: 20px 14px; background: #FFFFFF; border-right: 1px solid #DADCD6; display: flex; flex-direction: column; gap: 18px">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 0 6px">
+      <svg role="img" aria-label="ChordB logotipi" width="32" height="32" viewBox="0 0 100 100">
+        <defs><clipPath id="lga2"><path d="M85.36 85.36A50 50 0 1 1 85.36 14.64L64.14 35.86A20 20 0 1 0 64.14 64.14Z"/></clipPath></defs>
+        <g clip-path="url(#lga2)"><rect x="0" y="0" width="100" height="11.9" fill="#2F5BFF"/><rect x="0" y="17.7" width="100" height="11.7" fill="#2F5BFF"/><rect x="0" y="35.2" width="100" height="11.9" fill="#2F5BFF"/><rect x="0" y="52.9" width="100" height="47.1" fill="#15171A"/></g>
+      </svg>
+      <div style="display: flex; flex-direction: column">
+        <span style="font-weight: 800; font-size: 17px">ChordB</span>
+        <span style="font-size: 12px; color: #5B6068">Admin panel</span>
+      </div>
+    </div>
+    <nav aria-label="Admin menyu" style="display: flex; flex-direction: column; gap: 2px">
+      <a href="A1-Panel.dc.html" style="display: flex; align-items: center; gap: 10px; height: 42px; padding: 0 12px; border-radius: 10px; color: #15171A; text-decoration: none; font-weight: 500; font-size: 14px">
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>Panel</a>
+      <a href="#tolovlar" style="display: flex; align-items: center; gap: 10px; height: 42px; padding: 0 12px; border-radius: 10px; color: #15171A; text-decoration: none; font-weight: 500; font-size: 14px">
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/></svg>
+        <span style="flex: 1">Toʻlovlar</span><span style="min-width: 22px; height: 22px; padding: 0 6px; box-sizing: border-box; border-radius: 11px; background: #B42318; color: #FFFFFF; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center">3</span></a>
+      <a href="A2-Foydalanuvchilar.dc.html" aria-current="page" style="display: flex; align-items: center; gap: 10px; height: 42px; padding: 0 12px; border-radius: 10px; background: #E3E9FF; color: #1F3FCC; text-decoration: none; font-weight: 600; font-size: 14px">
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c1-3.3 3.6-5 6.5-5s5.5 1.7 6.5 5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 15c2 .6 3.2 2.3 3.6 5"/></svg>Foydalanuvchilar</a>
+      <a href="A3-Qoshiq.dc.html" style="display: flex; align-items: center; gap: 10px; height: 42px; padding: 0 12px; border-radius: 10px; color: #15171A; text-decoration: none; font-weight: 500; font-size: 14px">
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6l10-2v12"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="16" r="2"/></svg>Qoʻshiqlar</a>
+      <a href="A1-Panel.dc.html" style="display: flex; align-items: center; gap: 10px; height: 42px; padding: 0 12px; border-radius: 10px; color: #15171A; text-decoration: none; font-weight: 500; font-size: 14px">
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>Soʻrovlar</a>
+      <a href="#xabar" style="display: flex; align-items: center; gap: 10px; height: 42px; padding: 0 12px; border-radius: 10px; color: #15171A; text-decoration: none; font-weight: 500; font-size: 14px">
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4L3 11l7 2.5L12.5 21 21 4z"/><path d="M10 13.5l4-4"/></svg>Xabar yuborish</a>
+    </nav>
+  </aside>
+
+  <main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 24px clamp(16px, 3vw, 32px) 40px; display: flex; flex-direction: column; gap: 18px">
+    <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+      <h1 style="margin: 0; font-weight: 800; font-size: 28px; letter-spacing: -0.02em">Foydalanuvchilar</h1>
+      <div style="position: relative; flex: 0 1 320px">
+        <label for="us" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Ism yoki @username boʻyicha qidirish</label>
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5B6068" stroke-width="2" stroke-linecap="round" style="position: absolute; left: 14px; top: 13px"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>
+        <input id="us" type="search" placeholder="Ism, @username yoki ID" style="width: 100%; height: 44px; box-sizing: border-box; padding: 0 14px 0 42px; border-radius: 12px; border: 1px solid #DADCD6; background: #FFFFFF; color: #15171A; font-family: inherit; font-size: 14px">
+      </div>
+    </div>
+
+    <div role="tablist" aria-label="Filtr" style="display: flex; flex-wrap: wrap; gap: 8px">
+      <sc-for list="{{tabs}}" as="t" hint-placeholder-count="5">
+        <button type="button" role="tab" aria-selected="{{t.sel}}" style="height: 38px; display: inline-flex; align-items: center; gap: 8px; padding: 0 14px; border-radius: 10px; border: 1px solid {{t.border}}; background: {{t.bg}}; color: {{t.fg}}; font-size: 14px; font-weight: 600">{{t.label}}<span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: {{t.countFg}}">{{t.n}}</span></button>
+      </sc-for>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+      <section aria-label="Foydalanuvchilar roʻyxati" style="flex: 3 1 560px; min-width: 0; border-radius: 16px; background: #FFFFFF; border: 1px solid #DADCD6; overflow-x: auto">
+        <table style="width: 100%; min-width: 640px; border-collapse: collapse; font-size: 14px">
+          <thead>
+            <tr style="text-align: left; color: #5B6068; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em">
+              <th scope="col" style="padding: 14px 16px; font-weight: 600">Foydalanuvchi</th>
+              <th scope="col" style="padding: 14px 8px; font-weight: 600">Qoʻshilgan</th>
+              <th scope="col" style="padding: 14px 8px; font-weight: 600">Oxirgi faollik</th>
+              <th scope="col" style="padding: 14px 8px; font-weight: 600">Holat</th>
+              <th scope="col" style="padding: 14px 16px; font-weight: 600; text-align: right">Amal</th>
+            </tr>
+          </thead>
+          <tbody>
+            <sc-for list="{{users}}" as="u" hint-placeholder-count="7">
+              <tr style="border-top: 1px solid #EEEFEB; background: {{u.rowBg}}">
+                <td style="padding: 10px 16px">
+                  <span style="display: flex; align-items: center; gap: 10px">
+                    <span aria-hidden="true" style="width: 36px; height: 36px; flex: none; border-radius: 50%; background: #E3E9FF; color: #1F3FCC; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px">{{u.ini}}</span>
+                    <span style="display: flex; flex-direction: column">
+                      <span style="font-weight: 600">{{u.name}}</span>
+                      <span style="font-size: 12px; color: #5B6068">{{u.handle}}</span>
+                    </span>
+                  </span>
+                </td>
+                <td style="padding: 10px 8px; color: #5B6068">{{u.joined}}</td>
+                <td style="padding: 10px 8px; color: #5B6068">{{u.seen}}</td>
+                <td style="padding: 10px 8px"><span style="height: 26px; display: inline-flex; align-items: center; padding: 0 8px; border-radius: 8px; background: {{u.stBg}}; color: {{u.stFg}}; font-size: 12px; font-weight: 600; white-space: nowrap">{{u.status}}</span></td>
+                <td style="padding: 10px 16px; text-align: right"><button type="button" style="height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid {{u.btnBorder}}; background: {{u.btnBg}}; color: {{u.btnFg}}; font-size: 13px; font-weight: 600; white-space: nowrap">{{u.action}}</button></td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </section>
+
+      <section aria-label="Tanlangan foydalanuvchi" style="flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 14px; padding: 18px; border-radius: 16px; background: #FFFFFF; border: 1px solid #DADCD6">
+        <div style="display: flex; align-items: center; gap: 12px">
+          <span aria-hidden="true" style="width: 48px; height: 48px; border-radius: 50%; background: #E3E9FF; color: #1F3FCC; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px">SM</span>
+          <div style="display: flex; flex-direction: column">
+            <span style="font-weight: 700; font-size: 17px">Sevara M.</span>
+            <span style="font-size: 13px; color: #5B6068">@sevara_m · ID 5512…</span>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+          <div style="display: flex; flex-direction: column; padding: 10px; border-radius: 10px; background: #F4F5F2"><span style="font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 18px">9</span><span style="font-size: 12px; color: #5B6068">kun faol</span></div>
+          <div style="display: flex; flex-direction: column; padding: 10px; border-radius: 10px; background: #F4F5F2"><span style="font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 18px">14</span><span style="font-size: 12px; color: #5B6068">qoʻshiq</span></div>
+          <div style="display: flex; flex-direction: column; padding: 10px; border-radius: 10px; background: #F4F5F2"><span style="font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 18px">5</span><span style="font-size: 12px; color: #5B6068">tahlil</span></div>
+        </div>
+
+        <div id="tolovlar" style="display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 12px; background: #FFF1DD">
+          <span style="font-weight: 600; font-size: 14px; color: #8A4B00">Toʻlov soʻrovi kutilmoqda</span>
+          <span style="font-size: 13px; color: #5B3200">30 kun · 20 000 soʻm · chek 1 soat oldin yuborilgan</span>
+          <div aria-hidden="true" style="height: 96px; border-radius: 10px; background: #FFFFFF; border: 1px dashed #E0B97A; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #8A4B00">[Chek rasmi]</div>
+        </div>
+
+        <fieldset style="margin: 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: 8px">
+          <legend style="padding: 0; margin-bottom: 8px; font-weight: 600; font-size: 14px">Premium muddati</legend>
+          <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px">
+            <button type="button" aria-pressed="false" style="height: 38px; border-radius: 10px; border: 1px solid #DADCD6; background: #FFFFFF; color: #15171A; font-size: 13px; font-weight: 600">7 kun</button>
+            <button type="button" aria-pressed="true" style="height: 38px; border-radius: 10px; border: 1px solid #2F5BFF; background: #E3E9FF; color: #1F3FCC; font-size: 13px; font-weight: 600">30 kun</button>
+            <button type="button" aria-pressed="false" style="height: 38px; border-radius: 10px; border: 1px solid #DADCD6; background: #FFFFFF; color: #15171A; font-size: 13px; font-weight: 600">90 kun</button>
+            <button type="button" aria-pressed="false" style="height: 38px; border-radius: 10px; border: 1px solid #DADCD6; background: #FFFFFF; color: #15171A; font-size: 13px; font-weight: 600">1 yil</button>
+          </div>
+        </fieldset>
+        <label for="note" style="font-weight: 600; font-size: 14px">Izoh</label>
+        <textarea id="note" rows="2" placeholder="Masalan: Click orqali 20 000 soʻm" style="box-sizing: border-box; width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid #DADCD6; background: #FFFFFF; color: #15171A; font-family: inherit; font-size: 14px; resize: vertical"></textarea>
+        <div style="display: flex; gap: 8px">
+          <button type="button" style="flex: 1; height: 44px; border-radius: 12px; border: 0; background: #12805C; color: #FFFFFF; font-size: 15px; font-weight: 600">Tasdiqlash va premium berish</button>
+          <button type="button" style="height: 44px; padding: 0 14px; border-radius: 12px; border: 1px solid #DADCD6; background: #FFFFFF; color: #B42318; font-size: 14px; font-weight: 600">Rad etish</button>
+        </div>
+        <span style="font-size: 12px; color: #5B6068">Foydalanuvchiga botda avtomatik xabar boradi.</span>
+
+        <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 12px; border-top: 1px solid #EEEFEB">
+          <span style="font-weight: 600; font-size: 14px">Tarix</span>
+          <span style="font-size: 13px; color: #5B6068">12-okt · Bunyod: 7 kun sinov berdi</span>
+          <span style="font-size: 13px; color: #5B6068">19-okt · Sinov muddati tugadi</span>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const tabsRaw = [['Hammasi', '1 248', true], ['Premium', '42', false], ['Faol, bepul', '344', false], ['Toʻlov kutilmoqda', '3', false], ['Botni bloklagan', '27', false]];
+    const prem = { stBg: '#DDF0E7', stFg: '#0B5A40', action: 'Bekor qilish', btnBg: '#FFFFFF', btnFg: '#B42318', btnBorder: '#DADCD6' };
+    const free = { stBg: '#F1F2EF', stFg: '#41464D', action: 'Premium berish', btnBg: '#FFFFFF', btnFg: '#1F3FCC', btnBorder: '#C7D3FF' };
+    const wait = { stBg: '#FFF1DD', stFg: '#8A4B00', action: 'Koʻrib chiqish', btnBg: '#2F5BFF', btnFg: '#FFFFFF', btnBorder: '#2F5BFF' };
+    const rows = [
+      ['SM', 'Sevara M.', '@sevara_m', '12-okt', '5 daq oldin', 'Toʻlov kutilmoqda', wait, true],
+      ['AK', 'Aziz K.', '@aziz_k', '9-okt', '12 daq oldin', 'Toʻlov kutilmoqda', wait, false],
+      ['DR', 'Dilshod R.', '@dilshod', '2-okt', 'bugun', 'Premium · 14-noyab gacha', prem, false],
+      ['NT', 'Nodira T.', '@nodira_t', '15-okt', 'kecha', 'Bepul · faol', free, false],
+      ['OB', 'Otabek B.', '@otabek', '1-okt', '3 kun oldin', 'Premium · 2-noyab gacha', prem, false],
+      ['MU', 'Malika U.', '@malika', '18-okt', 'bugun', 'Bepul · faol', free, false],
+      ['RK', 'Rustam K.', '—', '28-sen', '16 kun oldin', 'Bepul · nofaol', free, false]
+    ];
+    return {
+      tabs: tabsRaw.map((t) => ({ label: t[0], n: t[1], sel: t[2] ? 'true' : 'false', bg: t[2] ? '#15171A' : '#FFFFFF', fg: t[2] ? '#FFFFFF' : '#15171A', border: t[2] ? '#15171A' : '#DADCD6', countFg: t[2] ? '#C4C7C1' : '#5B6068' })),
+      users: rows.map((r) => Object.assign({ ini: r[0], name: r[1], handle: r[2], joined: r[3], seen: r[4], status: r[5], rowBg: r[7] ? '#F5F8FF' : '#FFFFFF' }, r[6]))
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<title>ChordB Admin — Qoʻshiq qoʻshish</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&amp;family=IBM+Plex+Mono:wght@500;600&amp;display=swap">
+<style>
+body{margin:0;background:#F4F5F2}
+a{color:#1F3FCC}a:hover{color:#15309E}
+button{font-family:inherit;cursor:pointer}
+input::placeholder,textarea::placeholder{color:#6B7078}
+</style>
+</helmet>
+<div style="min-height: 100vh; box-sizing: border-box; background: #F4F5F2; color: #15171A; font-family: 'Bricolage Grotesque', sans-serif; display: flex; flex-wrap: wrap; align-items: stretch">
+
+  <aside style="flex: 1 1 220px; box-sizing: border-box; padding: 20px 14px; background: #FFFFFF; border-right: 1px solid #DADCD6; display: flex; flex-direction: column; gap: 18px">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 0 6px">
+      <svg role="img" aria-label="ChordB logotipi" width="32" height="32" viewBox="0 0 100 100">
+        <defs><clipPath id="lga3"><path d="M85.36 85.36A50 50 0 1 1 85.36 14.64L64.14 35.86A20 20 0 1 0 64.14 64.14Z"/></clipPath></defs>
+        <g clip-path="url(#lga3)"><rect x="0" y="0" width="100" height="11.9" fill="#2F5BFF"/><rect x="0" y="17.7" width="100" height="11.7" fill="#2F5BFF"/><rect x="0" y="35.2" width="100" height="11.9" fill="#2F5BFF"/><rect x="0" y="52.9" width="100" height="47.1" fill="#15171A"/></g>
+      </svg>
+      <div style="display: flex; flex-direction: column">
+        <span style="font-weight: 800; font-size: 17px">ChordB</span>
+        <span style="font-size: 12px; color: #5B6068">Admin panel</span>
+      </div>
+    </div>
+    <nav aria-label="Admin menyu" style="display: flex; flex-direction: column; gap: 2px">
+      <a href="A1-Panel.dc.html" style="display: flex; align-items: center; gap: 10px; height: 42px; padding: 0 12px; border-radius: 10px; color: #15171A; text-decoration: none; font-weight: 500; font-size: 14px">
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>Panel</a>
+      <a href="A2-Foydalanuvchilar.dc.html" style="display: flex; align-items: center; gap: 10px; height: 42px; padding: 0 12px; border-radius: 10px; color: #15171A; text-decoration: none; font-weight: 500; font-size: 14px">
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/></svg>
+        <span style="flex: 1">Toʻlovlar</span><span style="min-width: 22px; height: 22px; padding: 0 6px; box-sizing: border-box; border-radius: 11px; background: #B42318; color: #FFFFFF; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center">3</span></a>
+      <a href="A2-Foydalanuvchilar.dc.html" style="display: flex; align-items: center; gap: 10px; height: 42px; padding: 0 12px; border-radius: 10px; color: #15171A; text-decoration: none; font-weight: 500; font-size: 14px">
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c1-3.3 3.6-5 6.5-5s5.5 1.7 6.5 5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 15c2 .6 3.2 2.3 3.6 5"/></svg>Foydalanuvchilar</a>
+      <a href="A3-Qoshiq.dc.html" aria-current="page" style="display: flex; align-items: center; gap: 10px; height: 42px; padding: 0 12px; border-radius: 10px; background: #E3E9FF; color: #1F3FCC; text-decoration: none; font-weight: 600; font-size: 14px">
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6l10-2v12"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="16" r="2"/></svg>Qoʻshiqlar</a>
+      <a href="A1-Panel.dc.html" style="display: flex; align-items: center; gap: 10px; height: 42px; padding: 0 12px; border-radius: 10px; color: #15171A; text-decoration: none; font-weight: 500; font-size: 14px">
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>Soʻrovlar</a>
+      <a href="#xabar" style="display: flex; align-items: center; gap: 10px; height: 42px; padding: 0 12px; border-radius: 10px; color: #15171A; text-decoration: none; font-weight: 500; font-size: 14px">
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4L3 11l7 2.5L12.5 21 21 4z"/><path d="M10 13.5l4-4"/></svg>Xabar yuborish</a>
+    </nav>
+  </aside>
+
+  <main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 24px clamp(16px, 3vw, 32px) 40px; display: flex; flex-direction: column; gap: 18px">
+    <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+      <div style="display: flex; flex-direction: column; gap: 2px">
+        <a href="#list" style="font-size: 13px; font-weight: 600">← Qoʻshiqlar</a>
+        <h1 style="margin: 0; font-weight: 800; font-size: 28px; letter-spacing: -0.02em">Yangi qoʻshiq</h1>
+      </div>
+      <div style="display: flex; gap: 8px">
+        <button type="button" style="height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid #DADCD6; background: #FFFFFF; color: #15171A; font-size: 14px; font-weight: 600">Qoralama saqlash</button>
+        <button type="button" style="height: 44px; padding: 0 18px; border-radius: 12px; border: 0; background: #2F5BFF; color: #FFFFFF; font-size: 14px; font-weight: 600">Nashr qilish</button>
+      </div>
+    </div>
+
+    <section aria-label="YouTube havola" style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; padding: 18px; border-radius: 16px; background: #FFFFFF; border: 1px solid #DADCD6">
+      <div style="flex: 1 1 360px; display: flex; flex-direction: column; gap: 6px">
+        <label for="yt" style="font-weight: 600; font-size: 14px">1. YouTube havola</label>
+        <input id="yt" type="url" value="https://youtu.be/[video-id]" style="height: 46px; box-sizing: border-box; padding: 0 14px; border-radius: 12px; border: 1px solid #DADCD6; background: #FFFFFF; color: #15171A; font-family: 'IBM Plex Mono', monospace; font-size: 14px">
+      </div>
+      <button type="button" style="height: 46px; padding: 0 18px; border-radius: 12px; border: 0; background: #15171A; color: #FFFFFF; font-size: 14px; font-weight: 600">Avtomatik tahlil</button>
+      <span style="flex: 1 1 100%; font-size: 13px; color: #12805C">✓ Embed ruxsat etilgan · 3:15 · tahlil tayyor (23 soniya)</span>
+    </section>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+      <section aria-label="Akkordlar" style="flex: 3 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 14px; padding: 18px; border-radius: 16px; background: #FFFFFF; border: 1px solid #DADCD6">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px">
+          <h2 style="margin: 0; font-weight: 700; font-size: 17px">2. Akkordlar — tekshiring va tuzating</h2>
+          <div style="display: flex; gap: 8px; font-size: 13px">
+            <span style="height: 30px; display: inline-flex; align-items: center; padding: 0 10px; border-radius: 8px; background: #F1F2EF">Tonallik <strong style="margin-left: 6px; font-family: 'IBM Plex Mono', monospace">Am</strong></span>
+            <span style="height: 30px; display: inline-flex; align-items: center; padding: 0 10px; border-radius: 8px; background: #F1F2EF">BPM <strong style="margin-left: 6px; font-family: 'IBM Plex Mono', monospace">92</strong></span>
+          </div>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 16px">
+          <div aria-hidden="true" style="flex: 1 1 260px; aspect-ratio: 16 / 9; border-radius: 12px; background: #1D2026; display: flex; align-items: center; justify-content: center; color: #8A8F96; font-family: 'IBM Plex Mono', monospace; font-size: 12px">YouTube video</div>
+          <div style="flex: 1 1 260px; display: flex; flex-direction: column; gap: 10px">
+            <sc-for list="{{sections}}" as="sec" hint-placeholder-count="3">
+              <div style="display: flex; flex-direction: column; gap: 6px">
+                <span style="font-size: 12px; font-weight: 600; color: #5B6068">{{sec.title}}</span>
+                <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px">
+                  <sc-for list="{{sec.bars}}" as="b" hint-placeholder-count="4">
+                    <button type="button" aria-label="{{b.aria}}" style="height: 40px; border-radius: 8px; border: {{b.border}}; background: {{b.bg}}; color: #15171A; font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 15px">{{b.c}}</button>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding-top: 12px; border-top: 1px solid #EEEFEB">
+          <span style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: #5B6068"><span aria-hidden="true" style="width: 18px; height: 14px; border-radius: 4px; border: 2px dashed #C2410C; background: #FFF4E5"></span>Ishonch past — tekshiring (3 ta)</span>
+          <a href="Q3-Muharrir.dc.html" style="height: 40px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 10px; background: #E3E9FF; color: #1F3FCC; text-decoration: none; font-size: 14px; font-weight: 600">Muharrirda vaqtlarni tuzatish</a>
+        </div>
+      </section>
+
+      <div style="flex: 2 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+        <section aria-label="Maʼlumotlar" style="display: flex; flex-direction: column; gap: 12px; padding: 18px; border-radius: 16px; background: #FFFFFF; border: 1px solid #DADCD6">
+          <h2 style="margin: 0; font-weight: 700; font-size: 17px">3. Maʼlumotlar</h2>
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+            <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600">Nomi
+              <input type="text" value="[Qoʻshiq nomi]" style="height: 42px; box-sizing: border-box; padding: 0 12px; border-radius: 10px; border: 1px solid #DADCD6; font-family: inherit; font-size: 14px; font-weight: 400; color: #15171A"></label>
+            <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600">Ijrochi
+              <input type="text" value="[Ijrochi]" style="height: 42px; box-sizing: border-box; padding: 0 12px; border-radius: 10px; border: 1px solid #DADCD6; font-family: inherit; font-size: 14px; font-weight: 400; color: #15171A"></label>
+            <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600">Qiyinlik
+              <select style="height: 42px; box-sizing: border-box; padding: 0 10px; border-radius: 10px; border: 1px solid #DADCD6; background: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 400; color: #15171A"><option>Oson</option><option>Oʻrta</option><option>Qiyin</option></select></label>
+            <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600">Til
+              <select style="height: 42px; box-sizing: border-box; padding: 0 10px; border-radius: 10px; border: 1px solid #DADCD6; background: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 400; color: #15171A"><option>Oʻzbekcha</option><option>Ruscha</option><option>Boshqa</option></select></label>
+          </div>
+          <label style="display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 14px; font-weight: 600"><input type="checkbox" checked style="width: 20px; height: 20px; accent-color: #2F5BFF">Premium qoʻshiq</label>
+        </section>
+
+        <section aria-label="Instagram uchun" style="display: flex; flex-direction: column; gap: 10px; padding: 18px; border-radius: 16px; background: #15171A; color: #FFFFFF">
+          <h2 style="margin: 0; font-weight: 700; font-size: 17px">4. Instagram uchun havola</h2>
+          <span style="font-size: 13px; color: #C4C7C1">Reels izohida «akkord» deb soʻraganlarga yuboring — qoʻshiq ilovada toʻgʻridan-toʻgʻri ochiladi.</span>
+          <div style="display: flex; gap: 8px">
+            <span style="flex: 1; min-width: 0; height: 42px; display: flex; align-items: center; padding: 0 12px; border-radius: 10px; background: #24272D; font-family: 'IBM Plex Mono', monospace; font-size: 13px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis">t.me/ChordBbot/app?startapp=song_[id]</span>
+            <button type="button" style="height: 42px; padding: 0 14px; border-radius: 10px; border: 0; background: #FFFFFF; color: #15171A; font-size: 13px; font-weight: 600">Nusxa</button>
+          </div>
+          <label for="cap" style="font-size: 13px; font-weight: 600">Izoh uchun tayyor matn</label>
+          <textarea id="cap" rows="3" style="box-sizing: border-box; width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid #3A3D42; background: #24272D; color: #FFFFFF; font-family: inherit; font-size: 13px; resize: vertical">Toʻliq akkordlar va sekinlashtirilgan razbor ChordB'da: [havola]</textarea>
+          <div style="display: flex; gap: 8px; font-size: 12px; color: #C4C7C1">
+            <span>Havola orqali kirganlar: <strong style="color: #FFFFFF">0</strong></span><span>·</span><span>Toʻlov: <strong style="color: #FFFFFF">0</strong></span>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1100}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const low = { 6: true, 9: true, 13: true };
+    let n = 0;
+    const mk = (arr) => arr.map((c) => {
+      const i = n++;
+      const l = !!low[i];
+      return { c, aria: c + (l ? ', ishonch past' : ''), bg: l ? '#FFF4E5' : '#FFFFFF', border: l ? '2px dashed #C2410C' : '1px solid #DADCD6' };
+    });
+    return {
+      sections: [
+        { title: 'Kirish', bars: mk(['Am', 'F', 'C', 'G']) },
+        { title: 'Kuplet', bars: mk(['Am', 'F', 'C', 'G', 'Am', 'F', 'G', 'E']) },
+        { title: 'Naqarot', bars: mk(['F', 'G', 'C', 'Am']) }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

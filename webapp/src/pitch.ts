@@ -29,7 +29,9 @@ export function detectPitch(
     minFreq = 60,
     maxFreq = 1200,
     threshold = 0.15,
-    minRms = 0.01,
+    // ~-50 dBFS: with auto gain off, phone mics pick up a plucked string quietly.
+    // Noise that gets past this is still rejected by the YIN threshold.
+    minRms = 0.003,
     window = 2048,
   }: PitchOptions = {},
 ): number | null {
