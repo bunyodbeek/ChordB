@@ -442,7 +442,7 @@ function SongVideo({ id, seekRef }: { id: string; seekRef: React.RefObject<((sec
     <div className="pn-video">
       <div ref={video.hostRef} className="video-host" />
       {video.error && (
-        <p className="pn-video-error">{video.error === "blocked" ? t.player.videoBlocked : t.player.videoFailed}</p>
+        <p className="pn-video-error">{t.player.videoError(video.error, video.errorCode)}</p>
       )}
     </div>
   );

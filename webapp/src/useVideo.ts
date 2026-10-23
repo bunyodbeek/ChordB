@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { createAudioPlayer } from "./localAudio";
-import { UNEMBEDDABLE, YTState, createPlayer, type YTPlayer } from "./youtube";
+import { REFUSED, UNEMBEDDABLE, YTState, createPlayer, type VideoError, type YTPlayer } from "./youtube";
 
 export type MediaSource =
   | { kind: "youtube"; id: string }
@@ -38,13 +38,15 @@ export function useVideo(
   const [duration, setDuration] = useState<number | null>(null); // from YouTube, once known
   const [playing, setPlaying] = useState(false);
   const [ready, setReady] = useState(false);
-  const [error, setError] = useState<"blocked" | "failed" | null>(null);
+  const [error, setError] = useState<VideoError | null>(null);
+  const [errorCode, setErrorCode] = useState<number | null>(null); // YouTube's, shown to tell causes apart
 
   useEffect(() => {
     if (source.kind === "file" && !source.url) return;
     let disposed = false;
     setReady(false);
     setError(null);
+    setErrorCode(null);
     const create =
       source.kind === "youtube"
         ? (events: Parameters<typeof createPlayer>[3]) =>
@@ -62,7 +64,10 @@ export function useVideo(
         setPlaying(e.data === YTState.PLAYING || e.data === YTState.BUFFERING);
         h.current.onStateChange?.(e.data, e.target);
       },
-      onError: (e) => setError(UNEMBEDDABLE.has(e.data) ? "blocked" : "failed"),
+      onError: (e) => {
+        setErrorCode(e.data);
+        setError(UNEMBEDDABLE.has(e.data) ? "blocked" : REFUSED.has(e.data) ? "refused" : "failed");
+      },
     }).catch(() => setError("failed"));
 
     const id = setInterval(() => {
@@ -108,5 +113,5 @@ export function useVideo(
   /** Exact position right now (between polls), for marking chords. */
   const now = useCallback(() => player.current?.getCurrentTime() ?? 0, []);
 
-  return { hostRef, player, time, duration, playing, ready, error, seek, toggle, setRate, now };
+  return { hostRef, player, time, duration, playing, ready, error, errorCode, seek, toggle, setRate, now };
 }

@@ -4,8 +4,12 @@
 export const YTState = { UNSTARTED: -1, ENDED: 0, PLAYING: 1, PAUSED: 2, BUFFERING: 3, CUED: 5 };
 
 // Error codes that mean "this video can't be played here", not "try again".
-// 101/150/153: the owner disabled embedding (or embedding is blocked for this origin).
-export const UNEMBEDDABLE = new Set([100, 101, 150, 153]);
+// 101/150: the owner disabled embedding.
+export const UNEMBEDDABLE = new Set([101, 150]);
+// 100: removed or private; 152/153: YouTube refused this embed (153 = no Referer sent).
+export const REFUSED = new Set([100, 152, 153]);
+
+export type VideoError = "blocked" | "refused" | "failed";
 
 export interface YTPlayer {
   playVideo(): void;

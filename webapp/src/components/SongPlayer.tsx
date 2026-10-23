@@ -185,7 +185,7 @@ export function Player({
     },
     { controls: false }, // the player bar below is the only control
   );
-  const { time, playing, ready, error: videoError } = video;
+  const { time, playing, ready, error: videoError, errorCode: videoErrorCode } = video;
   const duration = video.duration ?? model.durationSec;
 
   // Save when Telegram is minimised or the phone locks.
@@ -392,7 +392,7 @@ export function Player({
         )}
         {videoError && !isFile && (
           <div className="video-error">
-            <p>{videoError === "blocked" ? t.player.videoBlocked : t.player.videoFailed}</p>
+            <p>{t.player.videoError(videoError, videoErrorCode)}</p>
             {model.youtubeId && (
               <button
                 type="button"

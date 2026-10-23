@@ -2,6 +2,9 @@
 <html lang="uz">
   <head>
     <meta charset="UTF-8" />
+    <!-- YouTube embeds need the page's origin as Referer (else error 153), and some
+         in-app webviews send none by default. -->
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"

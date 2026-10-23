@@ -75,8 +75,13 @@ export const t = {
     pause: "Pauza",
     loop: "Boʻlimni takrorlash",
     noChords: "Bu qoʻshiqqa akkordlar hali belgilanmagan.",
-    videoBlocked: "Bu videoni ilova ichida koʻrsatib boʻlmaydi: egasi boshqa saytlarga joylashni taqiqlagan.",
-    videoFailed: "Videoni yuklab boʻlmadi. Internetni tekshirib, qayta urinib koʻring.",
+    videoError: (kind: string, code: number | null) =>
+      (kind === "blocked"
+        ? "Bu videoni ilova ichida koʻrsatib boʻlmaydi: egasi boshqa saytlarga joylashni taqiqlagan."
+        : kind === "refused"
+          ? "YouTube bu videoni ilova ichida ochmadi."
+          : "Videoni yuklab boʻlmadi. Internetni tekshirib, qayta urinib koʻring.") +
+      (code !== null ? ` (kod ${code})` : ""),
     openOnYouTube: "YouTube’da ochish",
     edit: "Tahrirlash",
     tuningLabel: "Gitara sozlanishi",

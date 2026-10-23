@@ -244,7 +244,7 @@ function Editor({ song, notation, onBack }: { song: SongDetail; notation: Notati
         <span className="editor-clock">{formatClock(video.time)}</span>
         {video.error && (
           <div className="video-error">
-            <p>{video.error === "blocked" ? t.player.videoBlocked : t.player.videoFailed}</p>
+            <p>{t.player.videoError(video.error, video.errorCode)}</p>
             <button
               type="button"
               className="button"
