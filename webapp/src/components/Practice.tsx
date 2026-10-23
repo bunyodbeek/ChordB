@@ -2,29 +2,33 @@
 // collection. Games open as full screens (no tab bar); Telegram's BackButton returns.
 import { useCallback, useEffect, useState } from "react";
 
-import { api, type ChordJson, type PracticeStep, type PracticeSummary } from "../api";
+import { api, type ChordJson, type EarProgress, type PracticeStep, type PracticeSummary } from "../api";
 import { spelled } from "../chords";
 import { formatChord, type NotationKind } from "../notation";
 import { haptic } from "../telegram";
 import { t } from "../texts";
 import { ChordSwitchGame } from "./practice/ChordSwitchGame";
 import { ChordTrySheet } from "./practice/ChordTrySheet";
-import { EarTestGame } from "./practice/EarTestGame";
+import { EarTest } from "./practice/EarTest";
 import { Screen } from "./Screen";
 
-type View = { name: "hub" } | { name: "switch"; chain: ChordJson[] } | { name: "ear" };
+type View = { name: "hub" } | { name: "switch"; chain: ChordJson[] } | { name: "ear"; resume: string | null };
 
 interface Props {
   notation: NotationKind;
   onFullscreen: (on: boolean) => void;
   onTune: () => void; // the "tune" step happens on the Sozlash tab
+  earResume?: string | null; // an ear-test run to continue ("Davom ettirish" in the profile)
 }
 
 const COLLECTION_PREVIEW = 8;
 
-export function Practice({ notation, onFullscreen, onTune }: Props) {
-  const [view, setView] = useState<View>({ name: "hub" });
+export function Practice({ notation, onFullscreen, onTune, earResume = null }: Props) {
+  const [view, setView] = useState<View>(() =>
+    earResume ? { name: "ear", resume: earResume } : { name: "hub" },
+  );
   const [summary, setSummary] = useState<PracticeSummary | null>(null);
+  const [ear, setEar] = useState<EarProgress | null>(null);
   const [failed, setFailed] = useState(false);
   const [trying, setTrying] = useState<number | null>(null); // collection index in the sheet
 
@@ -36,6 +40,7 @@ export function Practice({ notation, onFullscreen, onTune }: Props) {
       },
       () => setFailed(true),
     );
+    api.ear.progress().then(setEar, () => {});
   }, []);
   useEffect(load, [load]);
 
@@ -62,8 +67,7 @@ export function Practice({ notation, onFullscreen, onTune }: Props) {
     );
   }
   if (view.name === "ear") {
-    const best = summary?.bests.find((b) => b.game === "ear_test" && b.chain_key === "level1")?.value ?? 0;
-    return <EarTestGame best={best} notation={notation} onBack={back} />;
+    return <EarTest notation={notation} resumeRunId={view.resume} onBack={back} />;
   }
 
   const today = summary?.today;
@@ -72,11 +76,10 @@ export function Practice({ notation, onFullscreen, onTune }: Props) {
     haptic.tap();
     if (step === "tune") onTune();
     else if (step === "chord_switch") setView({ name: "switch", chain });
-    else setView({ name: "ear" });
+    else setView({ name: "ear", resume: null });
   };
   const nextStep = today?.steps.find((s) => !today.steps_done.includes(s));
   const switchBest = summary?.bests.filter((b) => b.game === "chord_switch").map((b) => b.value) ?? [];
-  const earBest = summary?.bests.find((b) => b.game === "ear_test" && b.chain_key === "level1");
   const have = new Set(summary?.collection.map((c) => `${c.root}:${c.quality}`) ?? []);
   const collectible = summary?.collectible ?? [];
   const firstLocked = Math.max(0, collectible.findIndex((c) => !have.has(`${c.root}:${c.quality}`)));
@@ -141,7 +144,7 @@ export function Practice({ notation, onFullscreen, onTune }: Props) {
         tone="green"
         title={t.practice.earTitle}
         sub={t.practice.earSub}
-        meta={earBest ? t.practice.score(earBest.value) : ""}
+        meta={ear ? t.practice.levelShort(ear.max_unlocked_level, ear.level_count) : ""}
         onClick={() => startStep("ear_test")}
       />
       <GameRow icon="↓↑" tone="amber" title={t.practice.rhythmTitle} sub={t.practice.rhythmSub} meta={t.practice.soon} />

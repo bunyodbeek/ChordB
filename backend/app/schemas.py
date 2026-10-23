@@ -1,4 +1,5 @@
 import re
+import uuid
 from datetime import date, datetime
 from typing import Literal
 
@@ -545,7 +546,6 @@ class SongLinkOut(BaseModel):
 
 # Server-side sanity limits for game results.
 MAX_SWITCHES_PER_MIN = 60
-EAR_TEST_QUESTIONS = 10
 
 
 class StreakOut(BaseModel):
@@ -598,21 +598,6 @@ class ChordSwitchDetails(BaseModel):
     duration_sec: float = Field(ge=10, le=120)
 
 
-class EarAnswer(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    chord: ChordModel  # what was played
-    picked: ChordModel | None  # None = no answer
-    correct: bool
-
-
-class EarTestDetails(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    level: int = Field(ge=1, le=5)  # 1 = major vs minor
-    answers: list[EarAnswer] = Field(min_length=EAR_TEST_QUESTIONS, max_length=EAR_TEST_QUESTIONS)
-
-
 class GameResultIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -632,3 +617,102 @@ class GameResultOut(BaseModel):
 
 class UnlockIn(ChordModel):
     mode: UnlockMode = UnlockMode.PLAYED
+
+
+# --- ear test levels (/api/ear) -------------------------------------------------------
+
+EarKind = Literal["quality", "chord", "progression"]
+
+
+class EarLevelOut(BaseModel):
+    level: int
+    title: str
+    kind: EarKind
+    premium: bool
+    shown: list[list[ChordModel]]  # the pool as the levels map lists it, groups split by "·"
+    note: str  # after the chords, or instead of them
+    unlocked: bool
+    best: int | None  # best score, None if never finished
+
+
+class EarActiveRun(BaseModel):
+    run_id: uuid.UUID
+    level: int
+    answered: int
+    expires_at: datetime
+
+
+class EarProgressOut(BaseModel):
+    max_unlocked_level: int
+    level_count: int
+    perfect_streak: int  # 10/10 runs in a row
+    perfect_runs: int  # 10/10 runs ever
+    levels: list[EarLevelOut]
+    active_run: EarActiveRun | None  # unfinished and not expired: "Davom ettirish"
+
+
+class EarRunIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    level: int = Field(ge=1, le=8)
+
+
+class EarOption(BaseModel):
+    id: str  # sent back as the choice
+    chords: list[ChordModel]  # [] for level 1's "maj" / "min"
+
+
+class EarQuestionOut(BaseModel):
+    question_id: int
+    options: list[EarOption]
+    voicing: list[list[int]]  # frets of each chord to play, string 6 first
+
+
+class EarAnswerOut(BaseModel):
+    correct: bool
+    correct_answer: str  # the right option id
+    played: list[ChordModel]  # what sounded: the diagram after the answer
+
+
+class EarAnsweredOut(EarAnswerOut):
+    question_id: int
+    choice: str
+
+
+class EarRunOut(BaseModel):
+    run_id: uuid.UUID
+    level: int
+    kind: EarKind
+    title: str
+    expires_at: datetime
+    questions: list[EarQuestionOut]  # never the answers
+    answered: list[EarAnsweredOut]  # so far; a resumed run continues after them
+
+
+class EarAnswerIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    question_id: int = Field(ge=0)
+    choice: str = Field(max_length=64)
+
+
+class EarSide(BaseModel):
+    id: str
+    chords: list[ChordModel]  # level 1: the chord in that quality, to hear it
+    voicing: list[list[int]]
+
+
+class EarMistake(BaseModel):
+    question_id: int
+    asked: EarSide
+    answered: EarSide
+
+
+class EarFinishOut(BaseModel):
+    score: int
+    perfect: bool
+    level: int
+    unlocked_level: int | None  # the level this run opened, if any
+    max_unlocked_level: int
+    best: int  # for this level, after this run
+    mistakes: list[EarMistake]

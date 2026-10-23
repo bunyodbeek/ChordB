@@ -29,14 +29,6 @@ def switch_result(switches=24, chains=6, duration=60.0, chain=(AM, C, G, F), sco
     }
 
 
-def ear_result(correct=8, level=1, score=None):
-    answers = [
-        {"chord": AM, "picked": AM if i < correct else C, "correct": i < correct} for i in range(10)
-    ]
-    return {"game": "ear_test", "score": correct if score is None else score,
-            "details": {"level": level, "answers": answers}}
-
-
 async def user_row(sessionmaker, telegram_id=USER) -> User:
     async with sessionmaker() as s:
         return await s.scalar(select(User).where(User.telegram_id == telegram_id))
@@ -140,10 +132,8 @@ async def test_chord_switch_result_and_personal_best(client):
         switch_result(switches=8, chains=5),  # more chains than switches allow
         switch_result(chain=(AM,)),  # a chain needs two chords
         switch_result(duration=600),
-        ear_result(correct=8, score=10),  # score ≠ correct answers
-        {"game": "ear_test", "score": 1, "details": {"level": 1, "answers": []}},
-        {"game": "ear_test", "score": 1, "details": {"level": 1, "answers": [
-            {"chord": AM, "picked": C, "correct": True}] * 10}},  # "correct" but wrong pick
+        # Ear test scores come only from server-checked runs (/api/ear/runs).
+        {"game": "ear_test", "score": 10, "details": {"level": 1, "answers": []}},
         {"game": "rhythm", "score": 1, "details": {}},
     ],
 )
@@ -152,20 +142,15 @@ async def test_impossible_results_are_rejected(client, body):
     assert r.status_code == 422, r.text
 
 
-async def test_ear_test_result(client):
-    r = await client.post("/api/games/result", headers=auth(), json=ear_result(correct=8))
-    assert r.status_code == 201, r.text
-    assert r.json()["best"] == 8 and r.json()["today"]["steps_done"] == ["ear_test"]
-    summary = (await client.get("/api/practice/summary", headers=auth())).json()
-    assert summary["bests"] == [{"game": "ear_test", "chain_key": "level1", "value": 8}]
+async def test_games_complete_the_day(client, sessionmaker):
+    from tests.test_ear import play_run
 
-
-async def test_games_complete_the_day(client):
     await client.post("/api/practice/step", headers=auth(), json={"step": "tune"})
     await client.post("/api/games/result", headers=auth(), json=switch_result())
-    r = await client.post("/api/games/result", headers=auth(), json=ear_result())
-    assert r.json()["today"]["completed"] is True
-    assert r.json()["today"]["streak"]["current"] == 1
+    await play_run(client, sessionmaker, level=1, wrong=2)
+    today = (await client.get("/api/practice/today", headers=auth())).json()
+    assert today["completed"] is True
+    assert today["streak"]["current"] == 1
 
 
 async def test_collection_unlock_is_idempotent(client, sessionmaker):

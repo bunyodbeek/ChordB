@@ -8,21 +8,32 @@ const TOP = 22;
 const DOT = 24;
 const PAD = 14; // room for the outer dots and the ×/○ marks
 
-export function BigChordDiagram({ frets, label }: { frets: Frets; label: string }) {
+export function BigChordDiagram({
+  frets,
+  label,
+  tone = "blue",
+  barreFret = false,
+}: {
+  frets: Frets;
+  label: string;
+  tone?: "blue" | "green"; // green: the ear test's right answer
+  barreFret?: boolean; // "N-lad" under every barre shape, even one at the nut (F: 1-lad)
+}) {
   const l = diagramLayout(frets);
   const fingers = fingering(frets);
   const gridH = l.rows * FR;
   const y = (row: number) => TOP + (row - 0.5) * FR;
   const w = 5 * SP + 1;
+  const fretLabel = l.base > 1 ? l.base : barreFret && l.barre ? l.barre.row + l.base - 1 : null;
 
   return (
     <svg
       role="img"
       aria-label={label}
-      className="big-diagram"
+      className={`big-diagram${tone === "green" ? " green" : ""}`}
       width={w + 2 * PAD}
-      height={TOP + gridH + (l.base > 1 ? 22 : 6)}
-      viewBox={`${-PAD} 0 ${w + 2 * PAD} ${TOP + gridH + (l.base > 1 ? 22 : 6)}`}
+      height={TOP + gridH + (fretLabel ? 22 : 6)}
+      viewBox={`${-PAD} 0 ${w + 2 * PAD} ${TOP + gridH + (fretLabel ? 22 : 6)}`}
     >
       {l.marks.map((m, i) =>
         m ? (
@@ -61,9 +72,9 @@ export function BigChordDiagram({ frets, label }: { frets: Frets; label: string 
           </text>
         </g>
       ))}
-      {l.base > 1 && (
+      {fretLabel && (
         <text x={0} y={TOP + gridH + 16} className="bd-base">
-          {l.base}-lad
+          {fretLabel}-lad
         </text>
       )}
     </svg>

@@ -1,76 +1,110 @@
-// Quloq testi — game-ear-test.reference.html. Ten chords played with the guitar sound;
-// pick the one you heard from four (level 1: major or minor). The score is saved.
-import { useEffect, useMemo, useState } from "react";
+// Quloq testi — game-ear-test.reference.html. One server run: ten questions, each played
+// with the guitar sound in the voicing the server sent (real barre shapes). The options
+// stay disabled until the chord has sounded; the server says whether a choice is right,
+// and the card then shows the right chord's diagram. A resumed run continues after the
+// questions already answered.
+import { useCallback, useEffect, useState } from "react";
 
-import { api } from "../../api";
-import { playChord, preload } from "../../audio/player";
-import { spelled } from "../../chords";
-import { formatChord, type Chord, type NotationKind } from "../../notation";
-import { EAR_QUESTIONS, earQuestions, rng, toJson } from "../../practice";
+import { api, ApiError, type EarAnswer, type EarFinish, type EarRun } from "../../api";
+import { playFrets, playSequence, preload } from "../../audio/player";
+import type { NotationKind } from "../../notation";
+import { chordsLabel, EAR_QUESTIONS, earOptionLabel } from "../../practice";
 import { haptic, useBackButton } from "../../telegram";
 import { t } from "../../texts";
+import { MiniChordDiagram, type MiniColors } from "../ChordDiagram";
 import { Screen } from "../Screen";
-import { GameResult } from "./GameResult";
+import { BigChordDiagram } from "./BigChordDiagram";
 
-interface Answer {
-  chord: Chord;
-  picked: Chord;
-  correct: boolean;
-}
+type Answered = EarAnswer & { choice: string };
 
-const same = (a: Chord, b: Chord) => a.root === b.root && a.quality === b.quality;
+const PROGRESSION_COLORS: Record<"ok" | "bad", MiniColors> = {
+  ok: { fg: "var(--text)", line: "#c4c7c1", dot: "var(--success)" },
+  bad: { fg: "var(--text)", line: "#c4c7c1", dot: "var(--blue)" },
+};
 
 interface Props {
-  best: number;
+  run: EarRun;
   notation: NotationKind;
+  onFinished: (result: EarFinish) => void;
+  onExpired: () => void; // 410: the run is gone, back to the levels
   onBack: () => void;
 }
 
-export function EarTestGame({ best, notation, onBack }: Props) {
+export function EarTestGame({ run, notation, onFinished, onExpired, onBack }: Props) {
   useBackButton(onBack);
-  const [seed, setSeed] = useState(() => Date.now());
-  const questions = useMemo(() => earQuestions(rng(seed)), [seed]);
-  const [q, setQ] = useState(0);
-  const [answers, setAnswers] = useState<Answer[]>([]);
-  const [done, setDone] = useState(false);
-  const [result, setResult] = useState<{ best: number; newBest: boolean } | null>(null);
-  const [saveFailed, setSaveFailed] = useState(false);
+  const [answers, setAnswers] = useState<Answered[]>(() =>
+    run.answered.map((a) => ({ choice: a.choice, correct: a.correct, correct_answer: a.correct_answer, played: a.played })),
+  );
+  const [q, setQ] = useState(() => Math.min(run.answered.length, EAR_QUESTIONS - 1));
+  const [heard, setHeard] = useState(false);
+  const [soundFailed, setSoundFailed] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const question = questions[q];
-  const picked = answers[q]?.picked ?? null;
+  const question = run.questions[q];
+  const answer = answers[q] ?? null;
   const score = answers.filter((a) => a.correct).length;
 
   useEffect(() => {
-    void api.event("game_start", "ear_test");
     preload().catch(() => {});
   }, []);
 
-  const play = () => void playChord(spelled(question.answer)).catch(() => {});
-  // Each new question plays its chord once by itself.
+  const play = useCallback(() => {
+    const v = question.voicing;
+    (v.length > 1 ? playSequence(v) : playFrets(v[0])).then(
+      () => {
+        setHeard(true);
+        setSoundFailed(false);
+      },
+      () => setSoundFailed(true),
+    );
+  }, [question]);
+
+  // Each new question plays by itself once; answers wait until it has sounded.
   useEffect(() => {
-    if (!done) play();
+    if (answers[q]) return; // a resumed run that stopped after answering
+    setHeard(false);
+    play();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, seed, done]);
+  }, [q]);
 
-  const pick = (c: Chord) => {
-    if (picked) return;
-    const correct = same(c, question.answer);
-    if (correct) haptic.success();
-    else haptic.error();
-    setAnswers((a) => [...a, { chord: question.answer, picked: c, correct }]);
-  };
+  const finish = useCallback(() => {
+    setBusy(true);
+    setError(null);
+    api.ear.finish(run.run_id).then(onFinished, (e) => {
+      setBusy(false);
+      if (e instanceof ApiError && e.status === 410) onExpired();
+      else setError(t.practice.runFailed);
+    });
+  }, [run.run_id, onFinished, onExpired]);
 
-  const finish = () => {
-    setDone(true);
-    api.practice
-      .result("ear_test", score, {
-        level: 1,
-        answers: answers.map((a) => ({ chord: toJson(a.chord), picked: toJson(a.picked), correct: a.correct })),
-      })
-      .then(
-        (r) => setResult({ best: r.best, newBest: r.new_best }),
-        () => setSaveFailed(true),
-      );
+  // Everything answered already (a run resumed at the very end): straight to the result.
+  useEffect(() => {
+    if (run.answered.length >= EAR_QUESTIONS) finish();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const pick = (choice: string) => {
+    if (answer || busy || !heard) return;
+    setBusy(true);
+    setError(null);
+    api.ear.answer(run.run_id, question.question_id, choice).then(
+      (r) => {
+        setBusy(false);
+        setAnswers((a) => [...a, { ...r, choice }]);
+        if (r.correct) {
+          haptic.success();
+          play(); // the right chord once more, now with its diagram
+        } else {
+          haptic.error();
+        }
+      },
+      (e) => {
+        setBusy(false);
+        if (e instanceof ApiError && e.status === 410) onExpired();
+        else setError(t.practice.runFailed);
+      },
+    );
   };
 
   const next = () => {
@@ -79,32 +113,70 @@ export function EarTestGame({ best, notation, onBack }: Props) {
     else setQ(q + 1);
   };
 
-  const again = () => {
-    setSeed(Date.now());
-    setQ(0);
-    setAnswers([]);
-    setDone(false);
-    setResult(null);
-    setSaveFailed(false);
+  const right = <span className="ear-score">{t.practice.score(score)}</span>;
+  const progression = run.kind === "progression";
+  const optionById = (id: string) => question.options.find((o) => o.id === id);
+  const label = (id: string) => {
+    const o = optionById(id);
+    return o ? earOptionLabel(o, notation) : id;
   };
 
-  const right = <span className="ear-score">{t.practice.score(score)}</span>;
-
-  if (done) {
-    return (
-      <Screen title={t.practice.earTitle} right={right} bodyClassName="game-body">
-        <GameResult
-          title={t.practice.earTitle}
-          score={t.practice.score(score)}
-          caption={t.practice.earSub}
-          best={result ? result.best : best || null}
-          newBest={result?.newBest ?? false}
-          failed={saveFailed}
-          shareText={t.practice.shareEar(score)}
-          onAgain={again}
-          onDone={onBack}
-        />
-      </Screen>
+  let card;
+  if (!answer) {
+    card = (
+      <div className="ear-card">
+        <button type="button" className="ear-play" aria-label={t.practice.listen} onClick={play}>
+          <svg aria-hidden="true" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M11 5L6 9H3v6h3l5 4V5z" fill="currentColor" />
+            <path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" />
+          </svg>
+        </button>
+        <span className="ear-which">{progression ? t.practice.whichProgression : t.practice.which}</span>
+        {soundFailed && <span className="ear-sound-failed">{t.soundFailed}</span>}
+        <button type="button" className="ear-again" onClick={play}>
+          {t.practice.again2}
+        </button>
+      </div>
+    );
+  } else {
+    const name = chordsLabel(answer.played, notation);
+    const tone = answer.correct ? "ok" : "bad";
+    card = (
+      <div className={`ear-card reveal ${tone}`} aria-live="polite">
+        <span className={`ear-reveal-name${progression ? " small" : ""}`}>{name}</span>
+        {progression ? (
+          <div className="ear-reveal-row">
+            {question.voicing.map((frets, i) => (
+              <MiniChordDiagram
+                key={i}
+                frets={frets}
+                colors={PROGRESSION_COLORS[tone]}
+                label={t.player.diagram(chordsLabel([answer.played[i]], notation))}
+                big
+              />
+            ))}
+          </div>
+        ) : (
+          <BigChordDiagram
+            frets={question.voicing[0]}
+            label={t.player.diagram(name)}
+            tone={answer.correct ? "green" : "blue"}
+            barreFret
+          />
+        )}
+        {answer.correct ? (
+          <span className="ear-verdict ok">{t.practice.right}</span>
+        ) : (
+          <span className="ear-verdict bad">
+            {/* A progression is too long to repeat: the red option below shows the pick. */}
+            {progression ? t.practice.wrong : t.practice.youSaid(label(answer.choice))} ·{" "}
+            <button type="button" className="ear-listen-right" onClick={play}>
+              {progression ? t.practice.listenAgain : t.practice.listenTo(name)}
+            </button>
+          </span>
+        )}
+      </div>
     );
   }
 
@@ -118,54 +190,39 @@ export function EarTestGame({ best, notation, onBack }: Props) {
           />
         ))}
       </div>
-      <span className="ear-label">{t.practice.question(q + 1)}</span>
+      <span className="ear-label">{t.practice.question(q + 1, run.kind)}</span>
 
-      <div className="ear-card">
-        <button type="button" className="ear-play" aria-label={t.practice.listen} onClick={play}>
-          <svg aria-hidden="true" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M11 5L6 9H3v6h3l5 4V5z" fill="currentColor" />
-            <path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" />
-          </svg>
-        </button>
-        <span className="ear-which">{t.practice.which}</span>
-        <button type="button" className="ear-again" onClick={play}>
-          {t.practice.again2}
-        </button>
-      </div>
+      {card}
 
-      <div className="ear-options">
+      <div className={`ear-options${progression ? " wide" : ""}${!heard && !answer ? " waiting" : ""}`}>
         {question.options.map((o) => {
-          const label = formatChord(spelled(o), notation);
-          const isAnswer = same(o, question.answer);
-          const isPicked = picked !== null && same(o, picked);
-          const state = picked === null ? "" : isAnswer ? " ok" : isPicked ? " bad" : "";
-          const note =
-            picked !== null && isAnswer
-              ? t.practice.rightNote
-              : isPicked
-                ? t.practice.wrongNote
-                : o.quality === "min"
-                  ? "minor"
-                  : "major";
+          const name = earOptionLabel(o, notation);
+          const isAnswer = answer !== null && o.id === answer.correct_answer;
+          const isPicked = answer !== null && o.id === answer.choice;
+          const state = isAnswer ? " ok" : isPicked ? " bad" : "";
           return (
             <button
-              key={`${o.root}:${o.quality}`}
+              key={o.id}
               type="button"
               className={`ear-option${state}`}
-              aria-label={t.practice.chordAria(label)}
-              disabled={picked !== null && !isAnswer && !isPicked}
-              onClick={() => pick(o)}
+              aria-label={t.practice.chordAria(name)}
+              disabled={!heard || busy || (answer !== null && !isAnswer && !isPicked)}
+              onClick={() => pick(o.id)}
             >
-              <span className="ear-option-name">{label}</span>
-              <span className="ear-option-note">{note}</span>
+              <span className={`ear-option-name${progression || notation === "solfege" ? " small" : ""}`}>{name}</span>
             </button>
           );
         })}
       </div>
 
-      {picked !== null && (
-        <button type="button" className="ear-next" onClick={next}>
+      {error && (
+        <p className="editor-status error" role="alert">
+          {error}
+        </p>
+      )}
+
+      {answer !== null && (
+        <button type="button" className="ear-next" disabled={busy} onClick={next}>
           {q + 1 >= EAR_QUESTIONS ? t.practice.finish : t.practice.next}
         </button>
       )}

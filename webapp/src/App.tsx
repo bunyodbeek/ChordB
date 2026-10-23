@@ -24,6 +24,7 @@ export default function App() {
   const [tab, setTab] = useState<Tab>("tuner");
   const [fullscreen, setFullscreen] = useState(false); // e.g. the song player hides the tab bar
   const [preset, setPreset] = useState<PresetId>(loadPreset); // remembered on this device
+  const [earResume, setEarResume] = useState<string | null>(null); // the profile's "Davom ettirish"
 
   const changePreset = useCallback((id: PresetId) => {
     setPreset(id);
@@ -146,6 +147,7 @@ export default function App() {
             notation={me.settings.notation}
             onFullscreen={setFullscreen}
             onTune={() => setTab("tuner")}
+            earResume={earResume}
           />
         )}
         {tab === "songs" && (
@@ -156,10 +158,25 @@ export default function App() {
             onOpenTuner={openTuner}
           />
         )}
-        {tab === "profile" && <Profile me={me} onChange={updateSettings} />}
+        {tab === "profile" && (
+          <Profile
+            me={me}
+            onChange={updateSettings}
+            onResumeEar={(runId) => {
+              setEarResume(runId);
+              setTab("practice");
+            }}
+          />
+        )}
       </main>
       {!fullscreen && (
-        <TabBar tab={tab} onChange={setTab} />
+        <TabBar
+          tab={tab}
+          onChange={(next) => {
+            setEarResume(null);
+            setTab(next);
+          }}
+        />
       )}
     </div>
   );

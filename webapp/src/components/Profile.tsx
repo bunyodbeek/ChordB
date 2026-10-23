@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-import type { Me, Settings } from "../api";
+import { api, type EarProgress, type Me, type Settings } from "../api";
 import { navigate } from "../router";
 import { haptic } from "../telegram";
 import { t } from "../texts";
@@ -11,6 +11,7 @@ import { Screen } from "./Screen";
 interface Props {
   me: Me;
   onChange: (patch: Partial<Settings>) => void;
+  onResumeEar: (runId: string) => void;
 }
 
 function untilText(iso: string | null): string | null {
@@ -20,9 +21,15 @@ function untilText(iso: string | null): string | null {
   return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}`;
 }
 
-export function Profile({ me, onChange }: Props) {
+export function Profile({ me, onChange, onResumeEar }: Props) {
   const name = [me.first_name, me.last_name].filter(Boolean).join(" ");
   const [sheet, setSheet] = useState(false);
+  const [ear, setEar] = useState<EarProgress | null>(null);
+
+  useEffect(() => {
+    api.ear.progress().then(setEar, () => {});
+  }, []);
+  const active = ear?.active_run ?? null;
 
   return (
     <Screen title={t.tabs.profile} bodyClassName="scroll-y padded">
@@ -53,6 +60,34 @@ export function Profile({ me, onChange }: Props) {
           )}
         </div>
       </div>
+
+      {ear && (
+        <div className="card" aria-label={t.practice.stats}>
+          <div className="card-row">
+            <span className="card-label">{t.practice.earLevel}</span>
+            <span className="profile-stat">{t.practice.levelShort(ear.max_unlocked_level, ear.level_count)}</span>
+          </div>
+          <div className="card-row">
+            <span className="card-label">{t.practice.perfectRuns}</span>
+            <span className="profile-stat">{ear.perfect_runs}</span>
+          </div>
+          {active && (
+            <div className="card-row">
+              <span className="muted small">{t.practice.unfinishedRun(active.level, active.answered)}</span>
+              <button
+                type="button"
+                className="button small-button"
+                onClick={() => {
+                  haptic.tap();
+                  onResumeEar(active.run_id);
+                }}
+              >
+                {t.practice.resume}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="card">
         <div className="card-row">

@@ -3077,6 +3077,421 @@ button.tag {
   font-weight: 600;
 }
 
+.ear-options.waiting .ear-option {
+  opacity: 0.5;
+}
+
+.ear-options.wide {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+.ear-options.wide .ear-option {
+  height: auto;
+  min-height: 52px;
+  padding: 6px 10px;
+}
+
+.ear-option-name.small {
+  font-size: 16px;
+}
+
+.ear-sound-failed {
+  font-size: 13px;
+  color: var(--red);
+}
+
+/* after the answer: the right chord in place of the play button */
+
+.ear-card.reveal {
+  gap: 10px;
+  padding: 12px;
+  border-width: 2px;
+}
+
+.ear-card.reveal.ok {
+  background: #eaf7f0;
+  border-color: var(--success);
+}
+
+:root[data-theme="dark"] .ear-card.reveal.ok {
+  background: #16302a;
+}
+
+.ear-card.reveal.bad {
+  border-color: var(--red);
+}
+
+.ear-reveal-name {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: 30px;
+  color: var(--text);
+}
+
+.ear-reveal-name.small {
+  font-size: 20px;
+}
+
+.ear-reveal-row {
+  display: flex;
+  gap: 8px;
+}
+
+.big-diagram.green .bd-dot {
+  fill: var(--success);
+}
+
+.ear-verdict {
+  font-weight: 600;
+  font-size: 15px;
+  text-align: center;
+}
+
+.ear-verdict.ok {
+  color: var(--success-text);
+}
+
+.ear-verdict.bad {
+  color: var(--text);
+}
+
+.ear-listen-right {
+  padding: 0;
+  background: none;
+  color: var(--blue-text);
+  font-weight: 700;
+  font-size: 15px;
+}
+
+/* --- ear test levels (ear-levels.reference.html) --- */
+
+.ear-levels {
+  gap: 8px;
+  padding: 12px 16px calc(16px + var(--inset-bottom));
+}
+
+.ear-streak {
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+  border-radius: 10px;
+  background: var(--success-soft);
+  color: var(--success-text);
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.ear-level {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 8px 12px;
+  border-radius: 16px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  color: var(--text);
+  text-align: left;
+}
+
+.ear-level.now {
+  background: var(--row-selected);
+  border: 2px solid var(--blue);
+}
+
+.ear-level.locked {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.ear-level.skeleton {
+  background: var(--card);
+}
+
+.ear-level-badge {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--seg);
+  color: #8a8f96;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.ear-level-badge.done {
+  background: var(--success);
+  color: #ffffff;
+}
+
+.ear-level-badge.now {
+  background: var(--blue);
+  color: #ffffff;
+}
+
+.ear-level-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ear-level-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ear-level-title {
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.ear-level-premium {
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: var(--ink);
+  color: var(--ink-text);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.ear-level-pool {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ear-level-start {
+  flex: none;
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 12px;
+  background: var(--blue);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.ear-level-score {
+  flex: none;
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.ear-level-score.done {
+  color: var(--success-text);
+}
+
+/* --- ear test result (ear-result.reference.html) --- */
+
+.ear-result-level {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.ear-result-body {
+  gap: 14px;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.ear-hero {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 22px 16px;
+  border-radius: 20px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  text-align: center;
+}
+
+.ear-hero.perfect {
+  background: #eaf7f0;
+  border-color: #9fd6be;
+}
+
+:root[data-theme="dark"] .ear-hero.perfect {
+  background: #16302a;
+  border-color: #2f6b55;
+}
+
+.ear-hero-score {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: 64px;
+  line-height: 1;
+  color: var(--text);
+}
+
+.ear-hero.perfect .ear-hero-score {
+  color: var(--success-text);
+}
+
+.ear-hero-of {
+  font-size: 28px;
+  color: var(--muted);
+}
+
+.ear-hero-dots {
+  display: grid;
+  grid-template-columns: repeat(10, 16px);
+  gap: 6px;
+}
+
+.ear-hero-dots span {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--success);
+}
+
+.ear-hero-dots span.bad {
+  background: var(--red);
+}
+
+.ear-hero-head {
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.ear-hero-sub {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.ear-mistakes {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.ear-mistakes h2 {
+  margin: 0;
+  padding: 12px 14px 8px;
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.ear-mistake {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.ear-mistake.stacked {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.ear-mistake-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ear-mistake-pair {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: 17px;
+}
+
+.ear-mistake.stacked .ear-mistake-pair {
+  font-size: 14px;
+}
+
+.ear-mistake-said {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.ear-mistake-play {
+  flex: none;
+  display: flex;
+  gap: 8px;
+}
+
+.ear-mistake-play button {
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--text);
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.ear-mistakes-tip {
+  padding: 0 14px 12px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.ear-result-actions {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px calc(18px + var(--inset-bottom));
+  background: var(--card);
+  border-top: 1px solid var(--tabline);
+}
+
+.ear-result-primary {
+  height: 54px;
+  border-radius: 14px;
+  background: var(--blue);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.ear-result-secondary {
+  height: 48px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.profile-stat {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: 15px;
+}
+
 /* --- chord try sheet (chord-try.reference.html) --- */
 
 .try-overlay {

@@ -2,7 +2,7 @@
 // AudioContexts or sample sources.
 import { useSyncExternalStore } from "react";
 
-import { voicing } from "../chords";
+import { voicing, type Frets } from "../chords";
 import type { Chord } from "../notation";
 import { soundfontSource, type GuitarInstrument, type NoteSource, type Stop } from "./sources";
 import { buildStrum, type StrumOptions } from "./strum";
@@ -80,12 +80,12 @@ async function ready(): Promise<AudioContext> {
 }
 
 /** Strum a chord with its real fingering (see chords.ts voicing). */
-export async function playChord(chord: Chord, options: StrumOptions = {}): Promise<void> {
-  const ac = await ready();
-  const start = ac.currentTime + 0.03;
-  // A new strum damps the previous one, like a hand on real strings.
-  ringing.forEach((stop) => stop(start));
-  ringing = buildStrum(voicing(chord).frets, options).map((n) =>
+export function playChord(chord: Chord, options: StrumOptions = {}): Promise<void> {
+  return playFrets(voicing(chord).frets, options);
+}
+
+function strumAt(frets: Frets, start: number, options: StrumOptions): Stop[] {
+  return buildStrum(frets, options).map((n) =>
     source.play({
       midi: n.midi,
       string: n.string,
@@ -95,6 +95,34 @@ export async function playChord(chord: Chord, options: StrumOptions = {}): Promi
       duration: RING,
     }),
   );
+}
+
+/** Strum given frets, e.g. a voicing the server chose (the ear test's barre shapes). */
+export async function playFrets(frets: Frets, options: StrumOptions = {}): Promise<void> {
+  const ac = await ready();
+  const start = ac.currentTime + 0.03;
+  // A new strum damps the previous one, like a hand on real strings.
+  ringing.forEach((stop) => stop(start));
+  ringing = strumAt(frets, start, options);
+}
+
+const SEQUENCE_GAP = 1.1; // seconds between the chords of a progression
+
+/** Strum several chords one after another (a progression). Resolves once all are scheduled. */
+export async function playSequence(chords: Frets[], options: StrumOptions = {}): Promise<void> {
+  const ac = await ready();
+  const start = ac.currentTime + 0.03;
+  ringing.forEach((stop) => stop(start));
+  // Every chord's notes stay in `ringing`: a new strum then also silences the ones not
+  // started yet.
+  ringing = [];
+  let previous: Stop[] = [];
+  chords.forEach((frets, i) => {
+    const at = start + i * SEQUENCE_GAP;
+    previous.forEach((stop) => stop(at)); // each chord damps the one before it
+    previous = strumAt(frets, at, options);
+    ringing.push(...previous);
+  });
 }
 
 /** A single pitch, e.g. a reference tone. */

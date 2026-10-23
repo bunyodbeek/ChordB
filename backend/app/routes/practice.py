@@ -34,12 +34,10 @@ from chordb_common.practice import (
 from app.deps import CurrentUser, Session
 from app.premium import log_event
 from app.schemas import (
-    EAR_TEST_QUESTIONS,
     MAX_SWITCHES_PER_MIN,
     ChordModel,
     ChordSwitchDetails,
     CollectedChord,
-    EarTestDetails,
     GameResultIn,
     GameResultOut,
     PersonalBestOut,
@@ -177,57 +175,62 @@ async def summary(user: CurrentUser, session: Session) -> SummaryOut:
 
 def _validate(body: GameResultIn) -> tuple[str, dict]:
     """The personal-best key and the normalised details, or 422 for impossible results."""
+    if body.game == Game.EAR_TEST:
+        # The server checks the ear test itself: /api/ear/runs.
+        raise _invalid("ear test results come from /api/ear/runs")
     try:
-        if body.game == Game.CHORD_SWITCH:
-            d = ChordSwitchDetails.model_validate(body.details)
-            if body.score != d.switches:
-                raise _invalid("score must equal switches")
-            if d.switches > MAX_SWITCHES_PER_MIN * d.duration_sec / 60:
-                raise _invalid("too many switches for the time")
-            if d.chains > d.switches // len(d.chain) + 1:
-                raise _invalid("more chains than switches allow")
-            key = "-".join(chord_name(c.root, c.quality) for c in d.chain)
-            return key, d.model_dump(mode="json")
-        d = EarTestDetails.model_validate(body.details)
-        for a in d.answers:
-            if a.correct != (a.picked == a.chord):
-                raise _invalid("an answer's correct flag is wrong")
-        if body.score != sum(a.correct for a in d.answers) or body.score > EAR_TEST_QUESTIONS:
-            raise _invalid("score must equal the correct answers")
-        return f"level{d.level}", d.model_dump(mode="json")
+        d = ChordSwitchDetails.model_validate(body.details)
     except ValidationError as e:
         raise _invalid(e.errors(include_url=False)[0]["msg"]) from None
+    if body.score != d.switches:
+        raise _invalid("score must equal switches")
+    if d.switches > MAX_SWITCHES_PER_MIN * d.duration_sec / 60:
+        raise _invalid("too many switches for the time")
+    if d.chains > d.switches // len(d.chain) + 1:
+        raise _invalid("more chains than switches allow")
+    key = "-".join(chord_name(c.root, c.quality) for c in d.chain)
+    return key, d.model_dump(mode="json")
 
 
-@router.post("/games/result", response_model=GameResultOut, status_code=status.HTTP_201_CREATED)
-async def game_result(body: GameResultIn, user: CurrentUser, session: Session) -> GameResultOut:
-    key, details = _validate(body)
-    now = datetime.now(UTC)
-    result = GameResult(user_id=user.id, game=body.game, score=body.score, details=details)
+async def record_game(
+    session: Session, user: User, game: Game, score: int, key: str, details: dict, now: datetime
+) -> tuple[GameResult, int, bool]:
+    """Save a finished game, raise the personal best, mark the day's step. No commit.
+
+    Returns the result row, the best after it and whether it is a new best.
+    """
+    result = GameResult(user_id=user.id, game=game, score=score, details=details)
     session.add(result)
-
     before = await session.scalar(
         select(PersonalBest.value).where(
-            PersonalBest.user_id == user.id, PersonalBest.game == body.game, PersonalBest.chain_key == key
+            PersonalBest.user_id == user.id, PersonalBest.game == game, PersonalBest.chain_key == key
         )
     )
-    stmt = insert(PersonalBest).values(user_id=user.id, game=body.game, chain_key=key, value=body.score)
+    stmt = insert(PersonalBest).values(user_id=user.id, game=game, chain_key=key, value=score)
     best = await session.scalar(
         stmt.on_conflict_do_update(
             index_elements=[PersonalBest.user_id, PersonalBest.game, PersonalBest.chain_key],
             set_={"value": func.greatest(PersonalBest.value, stmt.excluded.value), "updated_at": now},
         ).returning(PersonalBest.value)
     )
-    await log_event(session, user, UserEventType.GAME_FINISH, ref=body.game.value)
-    await mark_step(session, user, GAME_STEP[body.game], now)
+    await log_event(session, user, UserEventType.GAME_FINISH, ref=game.value)
+    await mark_step(session, user, GAME_STEP[game], now)
+    return result, best or score, before is None or score > before
+
+
+@router.post("/games/result", response_model=GameResultOut, status_code=status.HTTP_201_CREATED)
+async def game_result(body: GameResultIn, user: CurrentUser, session: Session) -> GameResultOut:
+    key, details = _validate(body)
+    now = datetime.now(UTC)
+    result, best, new_best = await record_game(session, user, body.game, body.score, key, details, now)
     await session.commit()
     await session.refresh(result)
     return GameResultOut(
         id=result.id,
         game=body.game,
         score=body.score,
-        best=best or body.score,
-        new_best=before is None or body.score > before,
+        best=best,
+        new_best=new_best,
         today=await _today(session, user, now),
     )
 

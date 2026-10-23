@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<title>ChordB — Quloq testi natijasi</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&amp;family=IBM+Plex+Mono:wght@500;600&amp;display=swap">
+<style>
+body{margin:0;background:#F4F5F2}
+a{color:#1F3FCC}a:hover{color:#15309E}
+button{font-family:inherit;cursor:pointer}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4F5F2; color: #15171A; font-family: 'Bricolage Grotesque', sans-serif; display: flex; flex-direction: column; overflow: hidden">
+  <header style="flex: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 80px; box-sizing: border-box; padding: 0 16px; background: #FFFFFF; border-bottom: 1px solid #E3E5E0">
+    <h1 style="margin: 0; font-weight: 800; font-size: 26px; letter-spacing: -0.03em">Natija</h1>
+    <span style="font-size: 14px; font-weight: 600; color: #5B6068">4-daraja</span>
+  </header>
+
+  <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 14px; padding: 16px">
+    <section aria-label="Ball" style="display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 22px 16px; border-radius: 20px; background: {{heroBg}}; border: 1px solid {{heroBorder}}">
+      <span style="font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 64px; line-height: 1; color: {{scoreFg}}">{{score}}<span style="font-size: 28px; color: #5B6068">/10</span></span>
+      <div aria-hidden="true" style="display: grid; grid-template-columns: repeat(10, 16px); gap: 6px">
+        <sc-for list="{{dots}}" as="d" hint-placeholder-count="10">
+          <span style="width: 16px; height: 16px; border-radius: 50%; background: {{d.c}}"></span>
+        </sc-for>
+      </div>
+      <span style="font-weight: 700; font-size: 18px; text-align: center">{{headline}}</span>
+      <span style="font-size: 14px; color: #5B6068; text-align: center">{{sub}}</span>
+    </section>
+
+    <sc-if value="{{hasMistakes}}" hint-placeholder-val="{{ true }}">
+      <section aria-label="Adashtirilgan akkordlar" style="display: flex; flex-direction: column; border-radius: 16px; background: #FFFFFF; border: 1px solid #DADCD6; overflow: hidden">
+        <h2 style="margin: 0; padding: 12px 14px 8px; font-weight: 700; font-size: 16px">Adashtirgan akkordlaringiz</h2>
+        <div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-top: 1px solid #F1F2EF">
+          <span style="flex: 1; display: flex; flex-direction: column">
+            <span style="font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 17px">Am ↔ C</span>
+            <span style="font-size: 12px; color: #5B6068">Siz C dedingiz, aslida Am edi</span>
+          </span>
+          <button type="button" aria-label="Am akkordini tinglash" style="height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid #DADCD6; background: #FFFFFF; color: #15171A; font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 14px">▶ Am</button>
+          <button type="button" aria-label="C akkordini tinglash" style="height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid #DADCD6; background: #FFFFFF; color: #15171A; font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 14px">▶ C</button>
+        </div>
+        <span style="padding: 0 14px 12px; font-size: 13px; color: #5B6068">Maslahat: minor akkord qaygʻuliroq, major esa yorugʻroq eshitiladi.</span>
+      </section>
+    </sc-if>
+
+    <div style="flex: 1"></div>
+  </div>
+
+  <div style="flex: none; display: flex; flex-direction: column; gap: 8px; padding: 12px 16px 18px; background: #FFFFFF; border-top: 1px solid #E3E5E0">
+    <button type="button" style="height: 54px; border-radius: 14px; border: 0; background: #2F5BFF; color: #FFFFFF; font-weight: 700; font-size: 16px">{{primary}}</button>
+    <a href="E1-Darajalar.dc.html" style="height: 48px; display: flex; align-items: center; justify-content: center; border-radius: 14px; border: 1px solid #DADCD6; background: #FFFFFF; color: #15171A; text-decoration: none; font-weight: 600; font-size: 15px">Darajalar</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"perfect":{"editor":"boolean","default":false},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const perfect = this.props.perfect ?? false;
+    const wrong = perfect ? [] : [6];
+    const score = 10 - wrong.length;
+    return {
+      score,
+      scoreFg: perfect ? '#0B5A40' : '#15171A',
+      heroBg: perfect ? '#EAF7F0' : '#FFFFFF',
+      heroBorder: perfect ? '#9FD6BE' : '#DADCD6',
+      dots: Array.from({ length: 10 }, (_, i) => ({ c: wrong.includes(i) ? '#B42318' : '#12805C' })),
+      headline: perfect ? '5-daraja ochildi: Birinchi barre' : 'Juda yaqin! Yana bir urinish',
+      sub: perfect ? 'Barcha 10 ta akkordni toʻgʻri topdingiz.' : 'Keyingi darajaga oʻtish uchun 10/10 kerak.',
+      hasMistakes: !perfect,
+      primary: perfect ? 'Keyingi daraja' : 'Qayta urinish'
+    };
+  }
+}
+</script>
+</body>
+</html>

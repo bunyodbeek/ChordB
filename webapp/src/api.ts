@@ -138,6 +138,74 @@ export interface GameResultOut {
   today: PracticeToday;
 }
 
+// --- ear test levels (/api/ear) ---
+
+export type EarKind = "quality" | "chord" | "progression";
+
+export interface EarLevel {
+  level: number;
+  title: string;
+  kind: EarKind;
+  premium: boolean;
+  shown: ChordJson[][]; // the pool as the levels map lists it, groups split by "·"
+  note: string; // after the chords, or instead of them
+  unlocked: boolean;
+  best: number | null;
+}
+
+export interface EarProgress {
+  max_unlocked_level: number;
+  level_count: number;
+  perfect_streak: number;
+  perfect_runs: number;
+  levels: EarLevel[];
+  active_run: { run_id: string; level: number; answered: number; expires_at: string } | null;
+}
+
+/** An answer option; level 1's are "maj" / "min" with no chords. */
+export interface EarOption {
+  id: string;
+  chords: ChordJson[];
+}
+
+export interface EarQuestion {
+  question_id: number;
+  options: EarOption[];
+  voicing: number[][]; // frets of each chord to play, string 6 first
+}
+
+export interface EarAnswer {
+  correct: boolean;
+  correct_answer: string; // option id
+  played: ChordJson[]; // what sounded
+}
+
+export interface EarRun {
+  run_id: string;
+  level: number;
+  kind: EarKind;
+  title: string;
+  expires_at: string;
+  questions: EarQuestion[]; // never the answers: the server checks each choice
+  answered: (EarAnswer & { question_id: number; choice: string })[];
+}
+
+export interface EarSide {
+  id: string;
+  chords: ChordJson[];
+  voicing: number[][];
+}
+
+export interface EarFinish {
+  score: number;
+  perfect: boolean;
+  level: number;
+  unlocked_level: number | null;
+  max_unlocked_level: number;
+  best: number;
+  mistakes: { question_id: number; asked: EarSide; answered: EarSide }[];
+}
+
 // --- premium payments (/api/payments) ---
 
 export interface Plan {
@@ -307,7 +375,10 @@ export class ApiError extends Error {
   }
 
   get isPaywall(): boolean {
-    return this.status === 403 && (this.detail as { paywall?: boolean } | null)?.paywall === true;
+    return (
+      (this.status === 403 || this.status === 402) &&
+      (this.detail as { paywall?: boolean } | null)?.paywall === true
+    );
   }
 }
 
@@ -416,6 +487,15 @@ export const api = {
       request<GameResultOut>("POST", "/games/result", { game, score, details }),
     unlock: (chord: ChordJson, mode: "played" | "listened" = "played") =>
       request<CollectedChord[]>("POST", "/collection/unlock", { ...chord, mode }),
+  },
+
+  ear: {
+    progress: () => request<EarProgress>("GET", "/ear/progress"),
+    start: (level: number) => request<EarRun>("POST", "/ear/runs", { level }),
+    run: (runId: string) => request<EarRun>("GET", `/ear/runs/${runId}`),
+    answer: (runId: string, questionId: number, choice: string) =>
+      request<EarAnswer>("POST", `/ear/runs/${runId}/answer`, { question_id: questionId, choice }),
+    finish: (runId: string) => request<EarFinish>("POST", `/ear/runs/${runId}/finish`),
   },
 
   payments: {

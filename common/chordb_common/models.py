@@ -1,3 +1,4 @@
+import uuid
 from datetime import UTC, date, datetime
 from enum import StrEnum
 
@@ -16,6 +17,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    Uuid,
     func,
     text,
 )
@@ -492,3 +494,49 @@ class ChordCollection(Base):
     unlocked_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+
+class EarProgress(Base):
+    """How far a user got in the ear-test levels (chordb_common.ear)."""
+
+    __tablename__ = "ear_progress"
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    max_unlocked_level: Mapped[int] = mapped_column(SmallInteger, server_default=text("1"))
+    # {"1": 10, "2": 9, …}: the best score of each level played.
+    best_score_per_level: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
+    perfect_streak: Mapped[int] = mapped_column(Integer, server_default=text("0"))  # 10/10 runs in a row
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class EarRunStatus(StrEnum):
+    ACTIVE = "active"
+    FINISHED = "finished"
+    EXPIRED = "expired"  # not finished in time, or replaced by a newer run
+
+
+class EarRun(Base):
+    """Ten ear-test questions. The answers stay here: the webapp never sees them."""
+
+    __tablename__ = "ear_runs"
+    __table_args__ = (Index("ix_ear_runs_user_status", "user_id", "status"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    level: Mapped[int] = mapped_column(SmallInteger)
+    # [{"chords": [[root, quality], …], "answer": option id, "options": [option id, …]}]
+    questions: Mapped[list] = mapped_column(JSONB)
+    # [{"question_id": i, "choice": option id, "correct": bool}], in question order
+    answers: Mapped[list] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
+    score: Mapped[int | None] = mapped_column(SmallInteger)  # set when finished
+    status: Mapped[EarRunStatus] = mapped_column(
+        _str_enum(EarRunStatus, "ear_run_status"), server_default=text("'active'")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

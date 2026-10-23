@@ -1,36 +1,39 @@
 import { describe, expect, it } from "vitest";
 
-import { EAR_QUESTIONS, earQuestions, rng } from "./practice";
+import { chordsLabel, earOptionLabel, earPoolLabel, mistakeTip } from "./practice";
 
-describe("ear test questions", () => {
-  const qs = earQuestions(rng(42));
+const AM = { root: 9, quality: "min" } as const;
+const C = { root: 0, quality: "maj" } as const;
+const BB = { root: 10, quality: "maj" } as const;
+const G7 = { root: 7, quality: "7" } as const;
 
-  it("ten questions of four options", () => {
-    expect(qs).toHaveLength(EAR_QUESTIONS);
-    for (const q of qs) expect(q.options).toHaveLength(4);
+const side = (chords: { root: number; quality: "maj" | "min" | "7" }[]) => ({ id: "", chords, voicing: [] });
+
+describe("ear test labels", () => {
+  it("names options in the user's notation", () => {
+    expect(earOptionLabel({ id: "9:min", chords: [AM] }, "letter")).toBe("Am");
+    expect(earOptionLabel({ id: "9:min", chords: [AM] }, "solfege")).toBe("Lya minor");
+    expect(earOptionLabel({ id: "10:maj", chords: [BB] }, "letter")).toBe("Bb");
+    expect(earOptionLabel({ id: "maj", chords: [] }, "letter")).toBe("Major");
+    expect(chordsLabel([C, AM], "letter")).toBe("C → Am");
   });
 
-  it("the answer and its parallel are always options, two major and two minor", () => {
-    for (const q of qs) {
-      const has = (root: number, quality: string) =>
-        q.options.some((o) => o.root === root && o.quality === quality);
-      expect(has(q.answer.root, q.answer.quality)).toBe(true);
-      expect(has(q.answer.root, q.answer.quality === "maj" ? "min" : "maj")).toBe(true);
-      expect(q.options.filter((o) => o.quality === "maj")).toHaveLength(2);
-      const keys = new Set(q.options.map((o) => `${o.root}:${o.quality}`));
-      expect(keys.size).toBe(4);
-    }
+  it("lists a level's pool with its groups and note", () => {
+    expect(earPoolLabel({ shown: [[C], [AM]], note: "" }, "letter")).toBe("C · Am");
+    expect(earPoolLabel({ shown: [[C, AM]], note: "+ ochiq" }, "letter")).toBe("C Am + ochiq");
+    expect(earPoolLabel({ shown: [], note: "major + minor" }, "letter")).toBe("major + minor");
+    expect(earPoolLabel({ shown: [[C, AM]], note: "" }, "solfege")).toBe("Do major, Lya minor");
   });
 
-  it("no chord is the answer twice in a row", () => {
-    for (let i = 1; i < qs.length; i++) {
-      expect(`${qs[i].answer.root}:${qs[i].answer.quality}`).not.toBe(
-        `${qs[i - 1].answer.root}:${qs[i - 1].answer.quality}`,
-      );
-    }
-  });
-
-  it("is reproducible from the seed", () => {
-    expect(earQuestions(rng(7))).toEqual(earQuestions(rng(7)));
+  it("picks the hint that fits the mistakes", () => {
+    const m = (a: Parameters<typeof side>[0], b: Parameters<typeof side>[0]) => ({
+      question_id: 0,
+      asked: side(a),
+      answered: side(b),
+    });
+    expect(mistakeTip("chord", [m([AM], [C])])).toBe("quality");
+    expect(mistakeTip("chord", [m([G7], [C])])).toBe("seventh");
+    expect(mistakeTip("chord", [m([C], [BB])])).toBe("chord");
+    expect(mistakeTip("progression", [m([C, AM], [AM, C])])).toBe("progression");
   });
 });

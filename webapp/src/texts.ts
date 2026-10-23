@@ -279,16 +279,65 @@ export const t = {
 
     // ear test (game-ear-test.reference.html)
     questions: "Savollar",
-    question: (n: number) => `${n}-savol · minor yoki major?`,
+    question: (n: number, kind: string) =>
+      `${n}-savol · ${kind === "quality" ? "minor yoki major?" : kind === "progression" ? "qaysi ketma-ketlik?" : "qaysi akkord?"}`,
     listen: "Akkordni tinglash",
     which: "Qaysi akkord yangradi?",
+    whichProgression: "Qaysi ketma-ketlik yangradi?",
     again2: "Yana tinglash",
-    rightNote: "✓ toʻgʻri",
-    wrongNote: "✕ notoʻgʻri",
+    right: "✓ Toʻgʻri",
+    youSaid: (n: string) => `Siz ${n} dedingiz`,
+    wrong: "✕ Notoʻgʻri",
+    listenAgain: "▶ Toʻgʻrisini tinglash",
+    listenTo: (n: string) => `▶ ${n} ni tinglash`,
     next: "Keyingi savol",
     finish: "Natijani koʻrish",
     chordAria: (n: string) => `${n} akkordi`,
     score: (n: number) => `${n}/10`,
+    qualities: { maj: "Major", min: "Minor" } as Record<string, string>,
+    runExpired: "Raund vaqti tugadi (30 daqiqa). Yangisini boshlang.",
+    runFailed: "Javobni yuborib boʻlmadi. Internetni tekshiring.",
+    retryAnswer: "Qayta yuborish",
+
+    // ear levels (ear-levels.reference.html)
+    levelsRule: "Keyingi daraja faqat 10/10 bilan ochiladi",
+    perfectStreak: (n: number) => `10/10 ×${n}`,
+    perfectStreakAria: (n: number) => `Mukammal seriya: ${n}`,
+    levelTitle: (n: number, title: string) => `${n}. ${title}`,
+    bestScore: (n: number) => `eng yaxshi ${n}/10`,
+    locked: "Qulflangan",
+    start: "Boshlash",
+    resume: "Davom ettirish",
+    levelShort: (n: number, all: number) => `${n}/${all}`,
+    levelMeta: (n: number, all: number) => `${n}/${all} daraja`,
+
+    // ear result (ear-result.reference.html)
+    levelN: (n: number) => `${n}-daraja`,
+    scoreLabel: "Ball",
+    unlocked: (n: number, title: string) => `${n}-daraja ochildi: ${title}`,
+    allDone: "Barcha darajalar yakunlandi!",
+    perfectAgain: "Mukammal! 10/10",
+    perfectSub: "Barcha 10 ta akkordni toʻgʻri topdingiz.",
+    close: "Juda yaqin! Yana bir urinish",
+    tryAgainHead: "Yana bir urinish",
+    needPerfect: "Keyingi darajaga oʻtish uchun 10/10 kerak.",
+    mistakes: "Adashtirgan akkordlaringiz",
+    mistake: (said: string, was: string) => `Siz ${said} dedingiz, aslida ${was} edi`,
+    tips: {
+      quality: "Maslahat: minor akkord qaygʻuliroq, major esa yorugʻroq eshitiladi.",
+      seventh: "Maslahat: 7-akkord oddiy akkorddan keskinroq, davom etishni “soʻraydi”.",
+      progression: "Maslahat: birinchi akkord bir xil — qolganlarining tartibiga quloq soling.",
+      chord: "Maslahat: ikkala akkordni ketma-ket tinglab, farqini toping.",
+    },
+    nextLevel: "Keyingi daraja",
+    tryAgain: "Qayta urinish",
+    levels: "Darajalar",
+
+    // profile stats
+    stats: "Statistika",
+    earLevel: "Quloq testi darajasi",
+    perfectRuns: "Mukammal raundlar",
+    unfinishedRun: (level: number, answered: number) => `Tugallanmagan raund · ${level}-daraja, ${answered}/10`,
 
     // chord try (chord-try.reference.html)
     tryTitle: "Akkordni sinab koʻrish",
