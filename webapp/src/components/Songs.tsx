@@ -6,18 +6,16 @@ import { inTelegram, useBackButton } from "../telegram";
 import { t } from "../texts";
 import type { PresetId } from "../tuning";
 import { AnalyzeCard } from "./AnalyzeCard";
+import type { PremiumReason } from "./PremiumSheet";
 import { AdminSongs } from "./admin/AdminSongs";
 import { AnalysisPlayer } from "./AnalysisPlayer";
-import { PremiumSheet } from "./PremiumSheet";
 import { Screen } from "./Screen";
 import { ChordEditor } from "./admin/ChordEditor";
 import { SongForm } from "./admin/SongForm";
-import { SongPlayer } from "./SongPlayer";
 import { SongsList } from "./SongsList";
 
 type View =
   | { name: "list" }
-  | { name: "player"; id: number }
   | { name: "analysis"; id: number }
   | { name: "analyze" }
   | { name: "admin" }
@@ -27,23 +25,30 @@ type View =
 interface Props {
   notation: NotationKind;
   isAdmin: boolean;
-  onFullscreen: (on: boolean) => void; // everything but the list hides the tab bar
+  onFullscreen: (on: boolean) => void; // everything but the list hides the nav
   onOpenTuner: (preset: PresetId) => void;
+  onOpenSong: (id: number) => void; // the player is its own page, /songs/:id
+  onPaywall: (song: SongSummary) => void;
+  isPremium: boolean;
+  onPremium: (reason: PremiumReason) => void;
 }
 
-// The screen stack outlives the tab: after "Tyunerni ochish" and back, the same song is open.
+// The screen stack outlives the tab: after "Tyunerni ochish" and back, the same screen is open.
 let savedStack: View[] = [{ name: "list" }];
 
-/** Start on this song (a t.me/…?startapp=song_<id> link); back goes to the list. */
-export function openSongOnLaunch(id: number): void {
-  savedStack = [{ name: "list" }, { name: "player", id }];
-}
-
 /** The Qoʻshiqlar tab: a small stack of screens; back pops one. */
-export function Songs({ notation, isAdmin, onFullscreen, onOpenTuner }: Props) {
+export function Songs({
+  notation,
+  isAdmin,
+  onFullscreen,
+  onOpenTuner,
+  onOpenSong,
+  onPaywall,
+  isPremium,
+  onPremium,
+}: Props) {
   const [stack, setStack] = useState<View[]>(savedStack);
   savedStack = stack;
-  const [paywall, setPaywall] = useState<SongSummary | null>(null);
   const view = stack[stack.length - 1];
 
   const pop = useCallback(() => setStack((s) => (s.length > 1 ? s.slice(0, -1) : s)), []);
@@ -61,7 +66,7 @@ export function Songs({ notation, isAdmin, onFullscreen, onOpenTuner }: Props) {
   }, [pop]);
   const push = useCallback((v: View) => {
     if (!inTelegram) {
-      history.pushState({ songs: true }, "");
+      history.pushState({ ...history.state, songs: true }, ""); // keeps routes.ts's depth
       depth.current++;
     }
     setStack((s) => [...s, v]);
@@ -86,10 +91,11 @@ export function Songs({ notation, isAdmin, onFullscreen, onOpenTuner }: Props) {
         <SongsList
           notation={notation}
           isAdmin={isAdmin}
-          onOpen={(s) => push({ name: "player", id: s.id })}
-          onLocked={setPaywall}
+          onOpen={(s) => onOpenSong(s.id)}
+          onLocked={onPaywall}
           onAdmin={isAdmin ? () => push({ name: "admin" }) : undefined}
           onAnalyze={() => push({ name: "analyze" })}
+          onLimit={() => onPremium({ kind: "analyze" })}
         />
       );
       break;
@@ -99,18 +105,7 @@ export function Songs({ notation, isAdmin, onFullscreen, onOpenTuner }: Props) {
           notation={notation}
           onBack={back}
           onOpen={(id) => push({ name: "analysis", id })}
-        />
-      );
-      break;
-    case "player":
-      screen = (
-        <SongPlayer
-          key={view.id}
-          songId={view.id}
-          notation={notation}
-          onBack={back}
-          onPaywall={setPaywall}
-          onEdit={isAdmin ? () => push({ name: "editor", id: view.id }) : undefined}
+          onLimit={() => onPremium({ kind: "analyze" })}
         />
       );
       break;
@@ -122,6 +117,7 @@ export function Songs({ notation, isAdmin, onFullscreen, onOpenTuner }: Props) {
           notation={notation}
           onBack={back}
           onOpenTuner={onOpenTuner}
+          locks={{ isPremium, onPremium }}
         />
       );
       break;
@@ -151,27 +147,24 @@ export function Songs({ notation, isAdmin, onFullscreen, onOpenTuner }: Props) {
       break;
   }
 
-  return (
-    <>
-      {screen}
-      {paywall && <PremiumSheet song={paywall} onClose={() => setPaywall(null)} />}
-    </>
-  );
+  return screen;
 }
 
 function AnalyzeScreen({
   notation,
   onBack,
   onOpen,
+  onLimit,
 }: {
   notation: NotationKind;
   onBack: () => void;
   onOpen: (analysisId: number) => void;
+  onLimit: () => void;
 }) {
   useBackButton(onBack);
   return (
-    <Screen title={t.analyze.title} bodyClassName="scroll-y padded">
-      <AnalyzeCard notation={notation} onOpen={onOpen} />
+    <Screen title={t.analyze.title} onBack={onBack} bodyClassName="scroll-y padded">
+      <AnalyzeCard notation={notation} onOpen={onOpen} onLimit={onLimit} />
     </Screen>
   );
 }

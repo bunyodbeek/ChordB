@@ -2,7 +2,14 @@
 // collection. Games open as full screens (no tab bar); Telegram's BackButton returns.
 import { useCallback, useEffect, useState } from "react";
 
-import { api, type ChordJson, type EarProgress, type PracticeStep, type PracticeSummary } from "../api";
+import {
+  api,
+  type ChordJson,
+  type EarProgress,
+  type PracticeStep,
+  type PracticeSummary,
+  type StrumProgress,
+} from "../api";
 import { spelled } from "../chords";
 import { formatChord, type NotationKind } from "../notation";
 import { haptic } from "../telegram";
@@ -10,6 +17,7 @@ import { t } from "../texts";
 import { ChordSwitchGame } from "./practice/ChordSwitchGame";
 import { ChordTrySheet } from "./practice/ChordTrySheet";
 import { EarTest } from "./practice/EarTest";
+import type { PremiumReason } from "./PremiumSheet";
 import { Screen } from "./Screen";
 
 type View = { name: "hub" } | { name: "switch"; chain: ChordJson[] } | { name: "ear"; resume: string | null };
@@ -18,17 +26,21 @@ interface Props {
   notation: NotationKind;
   onFullscreen: (on: boolean) => void;
   onTune: () => void; // the "tune" step happens on the Sozlash tab
+  onStrum: () => void; // Ritm mashqi: its own page, /practice/strum
   earResume?: string | null; // an ear-test run to continue ("Davom ettirish" in the profile)
+  isPremium: boolean;
+  onPremium: (reason: PremiumReason) => void;
 }
 
 const COLLECTION_PREVIEW = 8;
 
-export function Practice({ notation, onFullscreen, onTune, earResume = null }: Props) {
+export function Practice({ notation, onFullscreen, onTune, onStrum, earResume = null, isPremium, onPremium }: Props) {
   const [view, setView] = useState<View>(() =>
     earResume ? { name: "ear", resume: earResume } : { name: "hub" },
   );
   const [summary, setSummary] = useState<PracticeSummary | null>(null);
   const [ear, setEar] = useState<EarProgress | null>(null);
+  const [strum, setStrum] = useState<StrumProgress | null>(null);
   const [failed, setFailed] = useState(false);
   const [trying, setTrying] = useState<number | null>(null); // collection index in the sheet
 
@@ -41,6 +53,7 @@ export function Practice({ notation, onFullscreen, onTune, earResume = null }: P
       () => setFailed(true),
     );
     api.ear.progress().then(setEar, () => {});
+    api.strum.progress().then(setStrum, () => {});
   }, []);
   useEffect(load, [load]);
 
@@ -67,7 +80,13 @@ export function Practice({ notation, onFullscreen, onTune, earResume = null }: P
     );
   }
   if (view.name === "ear") {
-    return <EarTest notation={notation} resumeRunId={view.resume} onBack={back} />;
+    return <EarTest
+        notation={notation}
+        resumeRunId={view.resume}
+        onBack={back}
+        isPremium={isPremium}
+        onPremium={onPremium}
+      />;
   }
 
   const today = summary?.today;
@@ -147,7 +166,17 @@ export function Practice({ notation, onFullscreen, onTune, earResume = null }: P
         meta={ear ? t.practice.levelShort(ear.max_unlocked_level, ear.level_count) : ""}
         onClick={() => startStep("ear_test")}
       />
-      <GameRow icon="↓↑" tone="amber" title={t.practice.rhythmTitle} sub={t.practice.rhythmSub} meta={t.practice.soon} />
+      <GameRow
+        icon="↓↑"
+        tone="amber"
+        title={t.practice.rhythmTitle}
+        sub={t.practice.rhythmSub}
+        meta={strum?.top_bpm ? t.practice.rhythmMeta(strum.top_bpm) : ""}
+        onClick={() => {
+          haptic.tap();
+          onStrum();
+        }}
+      />
       <GameRow icon="F" tone="grey" title={t.practice.barreTitle} sub={t.practice.barreSub} meta={t.practice.soon} />
 
       <button

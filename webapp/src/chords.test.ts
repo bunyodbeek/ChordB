@@ -8,20 +8,14 @@ import {
   fingering,
   soundedPcs,
   spelled,
-  transpose,
   voicing,
+  voicings,
 } from "./chords";
 import { formatChord, parseChord } from "./notation";
 
-describe("transpose", () => {
-  it("moves the root and respells", () => {
-    expect(formatChord(transpose(parseChord("Am"), 2), "letter")).toBe("Bm");
-    expect(formatChord(transpose(parseChord("G"), 3), "letter")).toBe("Bb");
-    expect(formatChord(transpose(parseChord("C"), -1), "letter")).toBe("B");
-    expect(formatChord(transpose(parseChord("E7"), 2), "letter")).toBe("F#7");
-    expect(formatChord(transpose(parseChord("D"), 1), "solfege")).toBe("Mi bemol major");
-  });
+const frets = (symbol: string) => voicings(parseChord(symbol)).map((v) => v.frets.map((f) => (f < 0 ? "x" : f)).join("-"));
 
+describe("spelled", () => {
   it("spells API chords the guitar way", () => {
     expect(formatChord(spelled({ root: 10, quality: "maj" }), "letter")).toBe("Bb");
     expect(formatChord(spelled({ root: 6, quality: "min" }), "letter")).toBe("F#m");
@@ -134,5 +128,28 @@ describe("fingering", () => {
     ["Bbm", [null, 1, 3, 4, 2, 1]],
   ])("%s", (name, want) => {
     expect(fingers(name)).toEqual(want);
+  });
+});
+
+describe("voicing variants", () => {
+  it("offers the open shape first, then barres up the neck", () => {
+    expect(frets("Am")).toEqual(["x-0-2-2-1-0", "5-7-7-5-5-5", "x-12-14-14-13-12"]);
+    expect(frets("C")).toEqual(["x-3-2-0-1-0", "x-3-5-5-5-3", "8-10-10-9-8-8"]);
+    expect(frets("F")).toEqual(["1-3-3-2-1-1", "x-8-10-10-10-8"]); // no open shape
+  });
+
+  it("starts with the default voicing, and every variant is the chord", () => {
+    for (const c of ALL) {
+      const all = voicings(c);
+      expect(all[0].frets).toEqual(voicing(c).frets);
+      expect(new Set(all.map((v) => v.frets.join())).size).toBe(all.length);
+      const tones = chordTones(c);
+      for (const v of all) {
+        const pcs = soundedPcs(v.frets);
+        expect(pcs.every((pc) => tones.includes(pc))).toBe(true);
+        expect(pcs).toContain(c.root);
+        expect(Math.max(...v.frets)).toBeLessThanOrEqual(16);
+      }
+    }
   });
 });

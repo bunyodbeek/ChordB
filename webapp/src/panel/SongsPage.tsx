@@ -7,6 +7,20 @@ import { t } from "../texts";
 import { shortDate } from "./format";
 import { LoadState, PanelLink, useLoad } from "./ui";
 
+/** The video's thumbnail, so a wrong YouTube id is seen at a glance. */
+export function VideoThumb({ id, title }: { id: string; title: string }) {
+  return (
+    <img
+      className="pn-thumb"
+      src={`https://i.ytimg.com/vi/${id}/mqdefault.jpg`}
+      alt={t.panel.videoPreview(title)}
+      width={96}
+      height={54}
+      loading="lazy"
+    />
+  );
+}
+
 export function SongsPage({ notation }: { notation: NotationKind }) {
   const songs = useLoad(() => api.admin.songs(), []);
   return (
@@ -19,8 +33,11 @@ export function SongsPage({ notation }: { notation: NotationKind }) {
       </div>
       <section aria-label={t.panel.songsTitle} className="pn-card pn-table-card">
         <LoadState state={songs}>
-          {(list) =>
-            list.length === 0 ? (
+          {(list) => {
+            // The same video under several songs is almost always a wrong id.
+            const uses = new Map<string, number>();
+            for (const s of list) uses.set(s.youtube_id, (uses.get(s.youtube_id) ?? 0) + 1);
+            return list.length === 0 ? (
               <div className="pn-note muted">{t.songs.empty}</div>
             ) : (
               <table className="pn-table">
@@ -36,10 +53,19 @@ export function SongsPage({ notation }: { notation: NotationKind }) {
                   {list.map((s) => (
                     <tr key={s.id} className="clickable" onClick={() => navigate(`/admin#/songs/${s.id}`)}>
                       <td>
-                        <PanelLink to={`#/songs/${s.id}`} className="pn-stack pn-plain">
-                          <span className="pn-strong">{s.title}</span>
-                          <span className="pn-meta">{s.artist}</span>
-                        </PanelLink>
+                        <span className="pn-song-cell">
+                          <VideoThumb id={s.youtube_id} title={s.title} />
+                          <PanelLink to={`#/songs/${s.id}`} className="pn-stack pn-plain">
+                            <span className="pn-strong">{s.title}</span>
+                            <span className="pn-meta">{s.artist}</span>
+                            <span className="pn-meta pn-mono">{s.youtube_id}</span>
+                            {(uses.get(s.youtube_id) ?? 0) > 1 && (
+                              <span className="pn-pill pending">
+                                {t.panel.duplicateVideo((uses.get(s.youtube_id) ?? 1) - 1)}
+                              </span>
+                            )}
+                          </PanelLink>
+                        </span>
                       </td>
                       <td className="pn-mono">
                         {s.chords_preview.length
@@ -59,8 +85,8 @@ export function SongsPage({ notation }: { notation: NotationKind }) {
                   ))}
                 </tbody>
               </table>
-            )
-          }
+            );
+          }}
         </LoadState>
       </section>
     </>

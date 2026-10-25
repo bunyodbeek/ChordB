@@ -12,9 +12,10 @@ import { Dashboard } from "./Dashboard";
 import "./panel.css";
 import { SongPage } from "./SongPage";
 import { SongsPage } from "./SongsPage";
+import { SuggestionsPage } from "./SuggestionsPage";
 import { FILTERS, Users } from "./Users";
 
-type NavId = "dashboard" | "payments" | "users" | "songs" | "requests";
+type NavId = "dashboard" | "payments" | "users" | "songs" | "suggestions" | "requests";
 
 export default function Panel() {
   const [me, setMe] = useState<Me | null | "denied" | "failed">(null);
@@ -104,6 +105,10 @@ function Shell({ me, pending, onPaymentsChanged }: { me: Me; pending: number; on
         );
       }
       break;
+    case "suggestions":
+      active = "suggestions";
+      page = <SuggestionsPage notation={notation} />;
+      break;
     default:
       active = parts[0] === "requests" ? "requests" : "dashboard";
       page = (
@@ -135,6 +140,7 @@ function Shell({ me, pending, onPaymentsChanged }: { me: Me; pending: number; on
           />
           <NavLink id="users" active={active} href="#/users" icon={<IconUsers />} />
           <NavLink id="songs" active={active} href="#/songs" icon={<IconNote />} />
+          <NavLink id="suggestions" active={active} href="#/suggestions" icon={<IconPencil />} />
           <NavLink id="requests" active={active} href="#/requests" icon={<IconSearch />} />
         </nav>
         <button type="button" className="pn-to-app" onClick={() => navigate("/")}>
@@ -233,6 +239,12 @@ const IconNote = () => (
     <path d="M9 18V6l10-2v12" />
     <circle cx="7" cy="18" r="2" />
     <circle cx="17" cy="16" r="2" />
+  </svg>
+);
+const IconPencil = () => (
+  <svg {...iconProps}>
+    <path d="M4 20h4L19 9l-4-4L4 16z" />
+    <path d="M13.5 6.5l4 4" />
   </svg>
 );
 const IconSearch = () => (

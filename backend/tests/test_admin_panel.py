@@ -55,8 +55,9 @@ async def test_payment_info_lists_plans_and_card(client, monkeypatch):
     assert r.status_code == 200
     body = r.json()
     assert body["card"] == "8600 0000 0000 0001"
-    assert [(p["id"], p["days"]) for p in body["plans"]] == [("month", 30), ("year", 365)]
+    assert [(p["id"], p["days"]) for p in body["plans"]] == [("month", 30), ("quarter", 90)]
     assert body["latest"] is None
+    assert body["premium_songs"] == 0
 
 
 async def test_payment_flow_approve(client, sessionmaker, telegram):

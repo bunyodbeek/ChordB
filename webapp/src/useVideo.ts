@@ -13,6 +13,11 @@ export type MediaSource =
 const sourceKey = (s: MediaSource) => (s.kind === "youtube" ? `yt:${s.id}` : `file:${s.url}`);
 
 const POLL_MS = 100;
+// YouTube's getCurrentTime() moves in steps (about four a second in the embed). Between
+// steps, now() runs the clock on from the last one, for up to this long.
+const MAX_GLIDE_SEC = 0.5;
+// A jump this big is a seek (or a stall caught up): taken as is, not smoothed.
+const JUMP_SEC = 0.3;
 
 export interface VideoHandlers {
   onReady?: (p: YTPlayer) => void;
@@ -31,6 +36,7 @@ export function useVideo(
 ) {
   const hostRef = useRef<HTMLDivElement>(null);
   const player = useRef<YTPlayer | null>(null);
+  const clock = useRef({ raw: -1, at: 0, shown: 0 }); // now()'s last step and answer
   const h = useRef(handlers);
   h.current = handlers;
 
@@ -110,8 +116,26 @@ export function useVideo(
 
   const setRate = useCallback((rate: number) => player.current?.setPlaybackRate(rate), []);
 
-  /** Exact position right now (between polls), for marking chords. */
-  const now = useCallback(() => player.current?.getCurrentTime() ?? 0, []);
+  /**
+   * The position right now, for marking chords every frame: the player's, run on smoothly
+   * between its steps while playing, and never backwards by a jitter.
+   */
+  const now = useCallback(() => {
+    const p = player.current;
+    if (!p) return 0;
+    const c = clock.current;
+    const raw = p.getCurrentTime();
+    const at = performance.now();
+    if (raw !== c.raw) {
+      c.raw = raw;
+      c.at = at;
+    }
+    if (p.getPlayerState() !== YTState.PLAYING) return (c.shown = raw);
+    const glide = Math.min(MAX_GLIDE_SEC, (at - c.at) / 1000) * (p.getPlaybackRate() || 1);
+    const t = raw + glide;
+    c.shown = Math.abs(t - c.shown) > JUMP_SEC ? t : Math.max(c.shown, t);
+    return c.shown;
+  }, []);
 
   return { hostRef, player, time, duration, playing, ready, error, errorCode, seek, toggle, setRate, now };
 }

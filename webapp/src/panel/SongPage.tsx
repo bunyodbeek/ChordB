@@ -4,8 +4,20 @@
 import { useEffect, useRef, useState } from "react";
 
 import { analysisErrorText } from "../analysis";
-import { ApiError, api, errorCode, type AnalysisDetail, type Difficulty, type SongDetail, type SongInput } from "../api";
+import {
+  ApiError,
+  api,
+  errorCode,
+  type AnalysisDetail,
+  type Difficulty,
+  type SongDetail,
+  type SongInput,
+  type StrumPattern,
+  type TimeSignature,
+} from "../api";
 import { spelled } from "../chords";
+import { ChordStrum } from "../components/ChordStrum";
+import { strokes } from "../strum";
 import { parseDuration, parseYouTubeId } from "../editor";
 import { formatChord, type NotationKind } from "../notation";
 import { navigate } from "../router";
@@ -16,11 +28,16 @@ import { useVideo } from "../useVideo";
 import { changesToTimeline, chordChanges, chunk, type ChordChange } from "./format";
 import { PanelLink, useLoad } from "./ui";
 
-const DIFFICULTIES: Difficulty[] = ["easy", "medium", "hard"];
+// "auto": from the chords (akkordlar soni, barre) and capo, kept up to date by the server.
+const DIFFICULTIES: (Difficulty | "auto")[] = ["auto", "easy", "medium", "hard"];
 const LANGUAGES = ["uz", "ru", "en"];
 const POLL_MS = 2000;
 const GROUP = 8; // chord changes per group without real sections, like the analysis player
 const MAX_CAPO = 12;
+const TIME_SIGNATURES: TimeSignature[] = ["4/4", "3/4", "2/4", "6/8"];
+const DEFAULT_PATTERN = "Pop"; // what the server uses when none is picked
+const BPM_MIN = 30;
+const BPM_MAX = 300;
 
 interface Group {
   title: string;
@@ -63,7 +80,7 @@ export function SongPage({ songId, notation, prefill }: Props) {
   const [youtube, setYoutube] = useState(prefill.youtube ? `https://youtu.be/${prefill.youtube}` : "");
   const [title, setTitle] = useState(() => (prefill.title ? splitTitle(prefill.title).title : ""));
   const [artist, setArtist] = useState(() => (prefill.title ? splitTitle(prefill.title).artist : ""));
-  const [difficulty, setDifficulty] = useState<Difficulty>("easy");
+  const [difficulty, setDifficulty] = useState<Difficulty | "auto">("auto");
   const [language, setLanguage] = useState("uz");
   const [premium, setPremium] = useState(false);
   const [keyRoot, setKeyRoot] = useState(9);
@@ -71,6 +88,11 @@ export function SongPage({ songId, notation, prefill }: Props) {
   const [capo, setCapo] = useState(0);
   const [duration, setDuration] = useState("");
   const [published, setPublished] = useState(false);
+  const [patterns, setPatterns] = useState<StrumPattern[]>([]);
+  const [patternId, setPatternId] = useState<number | null>(null); // null: the default
+  const [bpm, setBpm] = useState(""); // empty: from the analysis
+  const [bpmDetected, setBpmDetected] = useState<number | null>(null);
+  const [timeSignature, setTimeSignature] = useState<TimeSignature>("4/4");
 
   const [changes, setChanges] = useState<ChordChange[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
@@ -81,6 +103,9 @@ export function SongPage({ songId, notation, prefill }: Props) {
   const seekRef = useRef<((sec: number) => void) | null>(null);
   const alive = useRef(true);
   useEffect(() => () => void (alive.current = false), []);
+  useEffect(() => {
+    api.strum.patterns().then(setPatterns, () => {});
+  }, []);
 
   useEffect(() => {
     if (songId === null) return;
@@ -92,7 +117,7 @@ export function SongPage({ songId, notation, prefill }: Props) {
         setYoutube(`https://youtu.be/${s.youtube_id}`);
         setTitle(s.title);
         setArtist(s.artist);
-        setDifficulty(s.difficulty);
+        setDifficulty(s.difficulty_auto ? "auto" : s.difficulty);
         setLanguage(s.language);
         setPremium(s.is_premium);
         setKeyRoot(s.key.root);
@@ -100,6 +125,10 @@ export function SongPage({ songId, notation, prefill }: Props) {
         setCapo(s.capo);
         setDuration(formatTime(s.duration_sec));
         setPublished(s.is_published);
+        setPatternId(s.strum_pattern_id);
+        setBpm(s.bpm === null ? "" : String(Math.round(s.bpm)));
+        setBpmDetected(s.bpm_detected);
+        setTimeSignature(s.time_signature);
         const existing = s.events.map(({ time_sec, root, quality }) => ({ time_sec, root, quality, low: false }));
         setChanges(existing);
         setGroups(groupsOf(existing, s));
@@ -131,6 +160,11 @@ export function SongPage({ songId, notation, prefill }: Props) {
       setArtist(split.artist);
     }
     setAnalysis({ state: "done", bpm: a.bpm, duration: secs });
+    // The beat tracker's tempo, unless the admin has typed one.
+    if (a.bpm !== null) {
+      setBpmDetected(a.bpm);
+      setBpm((cur) => (cur.trim() ? cur : String(Math.round(a.bpm!))));
+    }
   };
 
   const analyze = async () => {
@@ -166,6 +200,8 @@ export function SongPage({ songId, notation, prefill }: Props) {
     if (!title.trim() || !artist.trim()) return fail(t.admin.form.required);
     if (!videoId) return fail(t.admin.form.youtubeBad);
     if (!seconds) return fail(t.admin.form.durationBad);
+    const tempo = bpm.trim() ? Number(bpm) : null;
+    if (tempo !== null && !(tempo >= BPM_MIN && tempo <= BPM_MAX)) return fail(t.panel.bpmBad);
     const body: SongInput = {
       title: title.trim(),
       artist: artist.trim(),
@@ -176,6 +212,9 @@ export function SongPage({ songId, notation, prefill }: Props) {
       language,
       is_premium: premium,
       duration_sec: seconds,
+      strum_pattern_id: patternId,
+      bpm: tempo,
+      time_signature: timeSignature,
     };
     setBusy(true);
     setStatus(null);
@@ -357,11 +396,11 @@ export function SongPage({ songId, notation, prefill }: Props) {
                 <select
                   className="pn-input"
                   value={difficulty}
-                  onChange={(e) => setDifficulty(e.target.value as Difficulty)}
+                  onChange={(e) => setDifficulty(e.target.value as Difficulty | "auto")}
                 >
                   {DIFFICULTIES.map((d) => (
                     <option key={d} value={d}>
-                      {t.songs.levels[d]}
+                      {d === "auto" ? t.songs.levelAuto : t.songs.levels[d]}
                     </option>
                   ))}
                 </select>
@@ -421,12 +460,96 @@ export function SongPage({ songId, notation, prefill }: Props) {
               <input type="checkbox" checked={premium} onChange={(e) => setPremium(e.target.checked)} />
               {t.admin.form.premium}
             </label>
+            <StrumFields
+              patterns={patterns}
+              patternId={patternId}
+              onPattern={setPatternId}
+              bpm={bpm}
+              onBpm={setBpm}
+              bpmDetected={bpmDetected}
+              timeSignature={timeSignature}
+              onTimeSignature={setTimeSignature}
+            />
           </section>
 
           <InstaLink songId={id} />
         </div>
       </div>
     </>
+  );
+}
+
+/** The strumming row's settings: the pattern (with its arrows), the tempo, the metre. */
+function StrumFields({
+  patterns,
+  patternId,
+  onPattern,
+  bpm,
+  onBpm,
+  bpmDetected,
+  timeSignature,
+  onTimeSignature,
+}: {
+  patterns: StrumPattern[];
+  patternId: number | null;
+  onPattern: (id: number | null) => void;
+  bpm: string;
+  onBpm: (v: string) => void;
+  bpmDetected: number | null;
+  timeSignature: TimeSignature;
+  onTimeSignature: (v: TimeSignature) => void;
+}) {
+  const shown = patterns.find((p) => p.id === patternId) ?? patterns.find((p) => p.name === DEFAULT_PATTERN);
+  return (
+    <div className="pn-form-grid">
+      <label className="pn-field">
+        {t.panel.strumPattern}
+        <select
+          className="pn-input"
+          value={patternId ?? ""}
+          onChange={(e) => onPattern(e.target.value ? Number(e.target.value) : null)}
+        >
+          <option value="">{t.panel.strumDefault(DEFAULT_PATTERN)}</option>
+          {patterns.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name} · {p.slots}
+              {p.is_premium ? ` · ${t.songs.premium}` : ""}
+            </option>
+          ))}
+        </select>
+        {shown && (
+          <span className="pn-strum-preview" aria-label={t.player.rhythmRow(shown.name)}>
+            {strokes(shown.slots).map((s, i) => (
+              <ChordStrum key={i} stroke={s} size={18} />
+            ))}
+          </span>
+        )}
+      </label>
+      <label className="pn-field">
+        {t.panel.bpm}
+        <input
+          className="pn-input mono"
+          value={bpm}
+          inputMode="numeric"
+          placeholder={t.panel.bpmAuto(bpmDetected)}
+          onChange={(e) => onBpm(e.target.value.replace(/[^\d.]/g, ""))}
+        />
+      </label>
+      <label className="pn-field">
+        {t.panel.timeSignature}
+        <select
+          className="pn-input"
+          value={timeSignature}
+          onChange={(e) => onTimeSignature(e.target.value as TimeSignature)}
+        >
+          {TIME_SIGNATURES.map((ts) => (
+            <option key={ts} value={ts}>
+              {ts}
+            </option>
+          ))}
+        </select>
+      </label>
+    </div>
   );
 }
 

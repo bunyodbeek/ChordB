@@ -11,7 +11,7 @@ import { haptic, useBackButton } from "../../telegram";
 import { t } from "../../texts";
 import { useChordListener } from "../../useChordListener";
 import { Screen } from "../Screen";
-import { BigChordDiagram } from "./BigChordDiagram";
+import { ChordDiagram } from "../ChordDiagram";
 import { GameResult } from "./GameResult";
 
 const FLASH_MS = 600;
@@ -123,7 +123,7 @@ export function ChordSwitchGame({ chain, best, notation, onBack, onChain }: Prop
 
   if (phase === "done") {
     return (
-      <Screen title={t.practice.switchTitle} bodyClassName="game-body">
+      <Screen title={t.practice.switchTitle} onBack={onBack} bodyClassName="game-body">
         <GameResult
           title={t.practice.switchTitle}
           score={switches}
@@ -153,6 +153,7 @@ export function ChordSwitchGame({ chain, best, notation, onBack, onChain }: Prop
   return (
     <Screen
       title={t.practice.switchTitle}
+      onBack={onBack}
       right={
         <span className="game-timer" role="timer" aria-label={t.practice.timeLeft}>
           {mm}:{ss}
@@ -191,7 +192,7 @@ export function ChordSwitchGame({ chain, best, notation, onBack, onChain }: Prop
           onClick={manual ? advance : undefined}
         >
           <span className={`game-chord${notation === "solfege" ? " sol" : ""}`}>{formatChord(current, notation)}</span>
-          <BigChordDiagram frets={voicing(current).frets} label={t.player.diagram(formatChord(current, notation))} />
+          <ChordDiagram frets={voicing(current).frets} label={t.player.diagram(formatChord(current, notation))} size="lg" fingers />
           <span className={`game-status ${status.tone}`}>{status.text}</span>
         </button>
 

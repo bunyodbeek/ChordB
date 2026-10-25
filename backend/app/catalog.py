@@ -1,20 +1,36 @@
 """Song queries and timeline writes shared by the public and admin routes."""
 
 from bisect import bisect_right
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 
 from fastapi import HTTPException, status
 from sqlalchemy import ColumnElement, delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from chordb_common.models import ChordEvent, Song, SongSection, User, UserSongProgress
+from chordb_common import strum
+from chordb_common.difficulty import auto_difficulty
+from chordb_common.models import (
+    Analysis,
+    AnalysisStatus,
+    ChordEvent,
+    Song,
+    SongKind,
+    SongSection,
+    StrumPattern,
+    User,
+    UserSavedSong,
+    UserSongProgress,
+    UserSongSettings,
+)
 
 from app.schemas import (
     ChordEventOut,
     ChordModel,
+    PlayerSettings,
     SectionOut,
     SongDetail,
     SongSummary,
+    StrumPatternOut,
     TimelineIn,
     is_admin,
 )
@@ -57,10 +73,84 @@ async def previews(session: AsyncSession, song_ids: Sequence[int]) -> dict[int, 
 
 
 async def summaries(session: AsyncSession, songs: Sequence[Song], user: User) -> list[SongSummary]:
-    pre = await previews(session, [s.id for s in songs])
+    ids = [s.id for s in songs]
+    pre = await previews(session, ids)
+    saved = (
+        set(
+            await session.scalars(
+                select(UserSavedSong.song_id).where(
+                    UserSavedSong.user_id == user.id, UserSavedSong.song_id.in_(ids)
+                )
+            )
+        )
+        if ids
+        else set()
+    )
     return [
-        SongSummary.build(s, locked=not can_open(s, user), preview=pre[s.id]) for s in songs
+        SongSummary.build(s, locked=not can_open(s, user), saved=s.id in saved, preview=pre[s.id])
+        for s in songs
     ]
+
+
+async def refresh_difficulty(session: AsyncSession, song: Song) -> None:
+    """Recompute an automatic difficulty from the stored timeline. The caller commits."""
+    if not song.difficulty_auto:
+        return
+    rows = (
+        await session.execute(
+            select(ChordEvent.root, ChordEvent.quality).where(ChordEvent.song_id == song.id)
+        )
+        if song.id is not None
+        else []
+    )
+    song.difficulty = auto_difficulty(((r, q) for r, q in rows), song.capo)
+
+
+def pattern_out(p: StrumPattern, user: User) -> StrumPatternOut:
+    return StrumPatternOut(
+        id=p.id,
+        name=p.name,
+        slots=p.slots,
+        is_premium=p.is_premium,
+        locked=p.is_premium and not (user.has_premium or is_admin(user)),
+    )
+
+
+async def check_patterns(session: AsyncSession, ids: Iterable[int | None]) -> None:
+    """422 unless every id given is a strumming pattern."""
+    wanted = {i for i in ids if i is not None}
+    if not wanted:
+        return
+    found = set(await session.scalars(select(StrumPattern.id).where(StrumPattern.id.in_(wanted))))
+    if wanted - found:
+        raise _reject("unknown strum pattern")
+
+
+async def detected_rhythm(
+    session: AsyncSession, youtube_id: str
+) -> tuple[float | None, list[float] | None]:
+    """The tempo and beat times the beat tracker found in the newest finished analysis
+    of the video; (None, None) when there is none."""
+    row = (
+        await session.execute(
+            select(Analysis.bpm, Analysis.beats)
+            .where(
+                Analysis.youtube_id == youtube_id,
+                Analysis.status == AnalysisStatus.DONE,
+                Analysis.bpm.is_not(None),
+            )
+            .order_by(Analysis.finished_at.desc().nulls_last(), Analysis.id.desc())
+            .limit(1)
+        )
+    ).first()
+    return (row.bpm, row.beats) if row else (None, None)
+
+
+async def player_settings(
+    session: AsyncSession, user_id: int, kind: SongKind, ref_id: int
+) -> PlayerSettings | None:
+    row = await session.get(UserSongSettings, (user_id, kind, ref_id))
+    return PlayerSettings(capo=row.capo, shift=row.shift, simple=row.simple) if row else None
 
 
 async def detail(session: AsyncSession, song: Song, user: User) -> SongDetail:
@@ -80,20 +170,42 @@ async def detail(session: AsyncSession, song: Song, user: User) -> SongDetail:
         )
     )
     (summary,) = await summaries(session, [song], user)
+    # The beats are the video's, so they hold whoever set the tempo.
+    bpm_detected, beats = await detected_rhythm(session, song.youtube_id)
+    pattern_id = song.strum_pattern_id or strum.DEFAULT_PATTERN_ID
+    used = {pattern_id, *(e.strum_pattern_id for e in events if e.strum_pattern_id)}
+    patterns = (
+        await session.scalars(
+            select(StrumPattern).where(StrumPattern.id.in_(used)).order_by(StrumPattern.sort)
+        )
+    ).all()
+    if pattern_id not in {p.id for p in patterns}:
+        pattern_id = None  # the default pattern was deleted: no strumming row
     return SongDetail(
         **summary.model_dump(),
-        youtube_id=song.youtube_id,
         sections=[
             SectionOut(id=s.id, order=s.order, title=s.title, start_sec=s.start_sec)
             for s in sections
         ],
         events=[
             ChordEventOut(
-                time_sec=e.time_sec, section_id=e.section_id, root=e.root, quality=e.quality
+                id=e.id,
+                time_sec=e.time_sec,
+                section_id=e.section_id,
+                root=e.root,
+                quality=e.quality,
+                strum_pattern_id=e.strum_pattern_id,
             )
             for e in events
         ],
         position_sec=position,
+        strum_pattern_id=pattern_id,
+        strum_patterns=[pattern_out(p, user) for p in patterns],
+        bpm=song.bpm,
+        bpm_detected=None if song.bpm is not None else bpm_detected,
+        beats=beats,
+        time_signature=song.time_signature or strum.DEFAULT_TIME_SIGNATURE,
+        settings=await player_settings(session, user.id, SongKind.SONG, song.id),
     )
 
 
@@ -119,6 +231,7 @@ async def replace_timeline(session: AsyncSession, song: Song, timeline: Timeline
         raise _reject("time beyond the end of the song")
     if sections and times and times[0] < starts[0]:
         raise _reject("chord event before the first section")
+    await check_patterns(session, (e.strum_pattern_id for e in events))
 
     await session.execute(delete(ChordEvent).where(ChordEvent.song_id == song.id))
     await session.execute(delete(SongSection).where(SongSection.song_id == song.id))
@@ -130,6 +243,8 @@ async def replace_timeline(session: AsyncSession, song: Song, timeline: Timeline
     session.add_all(rows)
     await session.flush()  # assigns section ids
 
+    if song.difficulty_auto:
+        song.difficulty = auto_difficulty(((e.root, e.quality) for e in events), song.capo)
     session.add_all(
         ChordEvent(
             song_id=song.id,
@@ -137,6 +252,7 @@ async def replace_timeline(session: AsyncSession, song: Song, timeline: Timeline
             time_sec=e.time_sec,
             root=e.root,
             quality=e.quality,
+            strum_pattern_id=e.strum_pattern_id,
         )
         for e in events
     )

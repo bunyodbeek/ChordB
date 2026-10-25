@@ -1226,3 +1226,26 @@ select.pn-input {
 .pn-modal-body .pn-receipt-img {
   max-height: 70dvh;
 }
+
+/* Song lists: the video's thumbnail next to the title, to spot a wrong YouTube id. */
+.pn-song-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pn-thumb {
+  flex: none;
+  width: 96px;
+  height: 54px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--tile);
+}
+
+.pn-video-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}

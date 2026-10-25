@@ -87,6 +87,11 @@ def _streak_out(state: StreakState, user: User, now: datetime) -> StreakOut:
     )
 
 
+async def streak_of(session: Session, user: User, now: datetime) -> StreakOut:
+    """The streak as the user sees it now (also the Asosiy header's chip)."""
+    return _streak_out(_state(await session.get(Streak, user.id)), user, now)
+
+
 async def _day(session: Session, user: User, now: datetime, *, lock: bool = False) -> PracticeDay | None:
     stmt = select(PracticeDay).where(
         PracticeDay.user_id == user.id, PracticeDay.date == local_date(now, user.timezone)
@@ -96,7 +101,6 @@ async def _day(session: Session, user: User, now: datetime, *, lock: bool = Fals
 
 async def _today(session: Session, user: User, now: datetime) -> TodayOut:
     day = await _day(session, user, now)
-    streak = await session.get(Streak, user.id)
     done = set(day.steps_done) if day else set()
     return TodayOut(
         date=local_date(now, user.timezone),
@@ -104,7 +108,7 @@ async def _today(session: Session, user: User, now: datetime) -> TodayOut:
         steps_done=[s for s in STEPS if s.value in done],
         completed=bool(day and day.completed),
         chain=[ChordModel(root=r, quality=q) for r, q in DEFAULT_CHAIN],
-        streak=_streak_out(_state(streak), user, now),
+        streak=await streak_of(session, user, now),
     )
 
 

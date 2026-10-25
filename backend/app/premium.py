@@ -22,7 +22,7 @@ def plans() -> dict[str, Plan]:
     s = get_settings()
     return {
         "month": Plan("month", 30, s.premium_price_month),
-        "year": Plan("year", 365, s.premium_price_year),
+        "quarter": Plan("quarter", 90, s.premium_price_quarter),
     }
 
 

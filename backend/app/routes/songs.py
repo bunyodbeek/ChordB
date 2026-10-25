@@ -1,10 +1,17 @@
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, Response, status
-from sqlalchemy import func, or_, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 
-from chordb_common.models import Difficulty, SearchMiss, Song, UserEventType, UserSongProgress
+from chordb_common.models import (
+    Difficulty,
+    SearchMiss,
+    Song,
+    UserEventType,
+    UserSavedSong,
+    UserSongProgress,
+)
 
 from app.catalog import can_open, detail, get_visible, summaries, visible
 from app.deps import CurrentUser, Session
@@ -27,7 +34,9 @@ async def list_songs(
     user: CurrentUser,
     session: Session,
     q: Annotated[str | None, Query(max_length=100)] = None,
-    easy: bool = False,
+    difficulty: Difficulty | None = None,
+    saved: bool = False,  # only the songs this user saved
+    easy: bool = False,  # = difficulty=easy (older clients)
     uzbek: bool = False,
     no_capo: bool = False,
 ) -> SongsOut:
@@ -38,7 +47,14 @@ async def list_songs(
             or_(Song.title.ilike(pattern, escape="\\"), Song.artist.ilike(pattern, escape="\\"))
         )
     if easy:
-        stmt = stmt.where(Song.difficulty == Difficulty.EASY)
+        difficulty = Difficulty.EASY
+    if difficulty is not None:
+        stmt = stmt.where(Song.difficulty == difficulty)
+    if saved:
+        stmt = stmt.join(
+            UserSavedSong,
+            (UserSavedSong.song_id == Song.id) & (UserSavedSong.user_id == user.id),
+        )
     if uzbek:
         stmt = stmt.where(Song.language == "uz")
     if no_capo:
@@ -47,7 +63,8 @@ async def list_songs(
 
     # Nothing in the catalog for a plain search: a content idea for the admin panel.
     query = (q or "").strip().lower()
-    if not songs and len(query) >= MISS_MIN_LEN and not (easy or uzbek or no_capo):
+    filtered = difficulty is not None or saved or uzbek or no_capo
+    if not songs and len(query) >= MISS_MIN_LEN and not filtered:
         session.add(SearchMiss(user_id=user.id, query=query))
         await session.commit()
 
@@ -81,7 +98,8 @@ async def list_songs(
 )
 async def get_song(song_id: int, user: CurrentUser, session: Session) -> SongDetail:
     song = await get_visible(session, song_id, user)
-    await log_event(session, user, UserEventType.SONG_OPENED)
+    # ref = the song: the Asosiy recommendation skips opened songs, and ranks popular ones.
+    await log_event(session, user, UserEventType.SONG_OPENED, ref=str(song.id))
     await session.commit()
     if not can_open(song, user):
         (summary,) = await summaries(session, [song], user)
@@ -105,6 +123,29 @@ async def save_progress(
         stmt.on_conflict_do_update(
             index_elements=[UserSongProgress.user_id, UserSongProgress.song_id],
             set_={"position_sec": stmt.excluded.position_sec, "updated_at": func.now()},
+        )
+    )
+    await session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.put("/{song_id}/saved", status_code=status.HTTP_204_NO_CONTENT)
+async def save_song(song_id: int, user: CurrentUser, session: Session) -> Response:
+    song = await get_visible(session, song_id, user)
+    await session.execute(
+        insert(UserSavedSong)
+        .values(user_id=user.id, song_id=song.id)
+        .on_conflict_do_nothing(index_elements=[UserSavedSong.user_id, UserSavedSong.song_id])
+    )
+    await session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.delete("/{song_id}/saved", status_code=status.HTTP_204_NO_CONTENT)
+async def unsave_song(song_id: int, user: CurrentUser, session: Session) -> Response:
+    await session.execute(
+        delete(UserSavedSong).where(
+            UserSavedSong.user_id == user.id, UserSavedSong.song_id == song_id
         )
     )
     await session.commit()

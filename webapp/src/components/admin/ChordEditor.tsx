@@ -103,7 +103,7 @@ type Snapshot = { events: DraftEvent[]; sections: DraftSection[] };
 
 function Editor({ song, notation, onBack }: { song: SongDetail; notation: NotationKind; onBack: () => void }) {
   const [events, setEvents] = useState<DraftEvent[]>(() =>
-    song.events.map(({ time_sec, root, quality }) => ({ time_sec, root, quality })),
+    song.events.map(({ time_sec, root, quality, strum_pattern_id }) => ({ time_sec, root, quality, strum_pattern_id })),
   );
   const [sections, setSections] = useState<DraftSection[]>(() =>
     song.sections.map(({ title, start_sec }) => ({ title, start_sec })),

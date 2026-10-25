@@ -1,24 +1,19 @@
-// Songs list — follows songs-list-v2.reference.html.
-import { useEffect, useState } from "react";
+// Songs list — songs-list-v3.reference.html: the "add your own song" card with today's
+// limit, one-choice chips, SongRows. Search hides behind the header's icon.
+import { useEffect, useRef, useState } from "react";
 
-import { api, type ChordJson, type SongSummary, type SongsResponse } from "../api";
+import { api, type ChordJson, type Difficulty, type SongSummary, type SongsResponse } from "../api";
 import { spelled } from "../chords";
 import { formatChord, type NotationKind } from "../notation";
 import { haptic } from "../telegram";
 import { t } from "../texts";
 import { Screen } from "./Screen";
+import { Chip, Icon, SearchIcon, SongRow, previewLine } from "./ui";
 
-type FilterKey = "easy" | "uzbek" | "no_capo";
-const FILTERS: FilterKey[] = ["easy", "uzbek", "no_capo"];
-const NO_FILTERS: Record<FilterKey, boolean> = { easy: false, uzbek: false, no_capo: false };
+type Filter = "all" | Difficulty | "saved";
+const FILTERS: Filter[] = ["all", "easy", "medium", "hard", "saved"];
 
 const SEARCH_DEBOUNCE_MS = 250;
-
-const PlayIcon = ({ size }: { size: number }) => (
-  <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
-    <path d="M8 5v14l11-7z" />
-  </svg>
-);
 
 export function chordLine(chords: ChordJson[], notation: NotationKind): string {
   return chords.map((c) => formatChord(spelled(c), notation)).join(" · ");
@@ -30,18 +25,29 @@ interface Props {
   onOpen: (song: SongSummary) => void;
   onLocked: (song: SongSummary) => void;
   onAdmin?: () => void; // admins only: song management
-  onAnalyze: () => void; // "Akkordlarni aniqlash": its own screen
+  onAnalyze: () => void; // "Oʻz qoʻshigʻingizni qoʻshing": its own screen
+  onLimit: () => void; // today's free analyses are used up: the premium sheet
 }
 
-export function SongsList({ notation, isAdmin, onOpen, onLocked, onAdmin, onAnalyze }: Props) {
-  const [q, setQ] = useState("");
-  const [filters, setFilters] = useState(NO_FILTERS);
+// Kept across visits to the tab, like the screen stack.
+let saved = { q: "", filter: "all" as Filter, searching: false };
+
+export function SongsList({ notation, isAdmin, onOpen, onLocked, onAdmin, onAnalyze, onLimit }: Props) {
+  const [q, setQ] = useState(saved.q);
+  const [filter, setFilter] = useState<Filter>(saved.filter);
+  const [searching, setSearching] = useState(saved.searching);
+  saved = { q, filter, searching };
   const [data, setData] = useState<SongsResponse | null>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  // Today's free analyses left (null: unlimited, or not known yet).
+  const [quota, setQuota] = useState<{ left: number; limit: number } | null>(null);
+  const input = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const ctrl = new AbortController();
+    const filters =
+      filter === "saved" ? { saved: true } : filter === "all" ? {} : { difficulty: filter };
     // Typing waits for a pause; chip taps fetch at once.
     const timer = setTimeout(
       () =>
@@ -60,15 +66,24 @@ export function SongsList({ notation, isAdmin, onOpen, onLocked, onAdmin, onAnal
       clearTimeout(timer);
       ctrl.abort();
     };
-  }, [q, filters, attempt]);
+  }, [q, filter, attempt]);
 
-  const anyFilter = FILTERS.some((f) => filters[f]);
+  useEffect(() => {
+    api.analyze.history().then(
+      (h) => setQuota(h.remaining_today === null ? null : { left: h.remaining_today, limit: h.daily_limit }),
+      () => {},
+    );
+  }, []);
+
+  useEffect(() => {
+    if (searching) input.current?.focus();
+  }, [searching]);
+
   const open = (song: SongSummary) => {
     haptic.tap();
     if (song.locked) onLocked(song);
     else onOpen(song);
   };
-  const cont = data?.continue_playing;
 
   const right = (
     <>
@@ -77,93 +92,76 @@ export function SongsList({ notation, isAdmin, onOpen, onLocked, onAdmin, onAnal
           {t.admin.label}
         </button>
       )}
-      <button type="button" className="bar-icon" aria-label={t.analyze.title} onClick={onAnalyze}>
-        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-          strokeWidth="2" strokeLinecap="round">
-          <path d="M3 12h2M7 8v8M11 5v14M15 9v6M19 11v2" />
-        </svg>
+      <button
+        type="button"
+        className="icon-button"
+        aria-label={t.songs.searchLabel}
+        aria-expanded={searching}
+        onClick={() => {
+          haptic.tap();
+          if (searching) setQ("");
+          setSearching(!searching);
+        }}
+      >
+        <SearchIcon />
       </button>
     </>
   );
 
   return (
     <Screen title={t.tabs.songs} right={right} bodyClassName="songs-body">
-      <div className="search">
-        <label htmlFor="qs" className="sr-only">
-          {t.songs.searchLabel}
-        </label>
-        <svg
-          aria-hidden="true"
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-        >
-          <circle cx="11" cy="11" r="6" />
-          <path d="M20 20l-4.5-4.5" />
-        </svg>
-        <input
-          id="qs"
-          type="search"
-          placeholder={t.songs.search}
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          autoComplete="off"
-        />
-      </div>
+      {searching && (
+        <div className="search">
+          <label htmlFor="qs" className="sr-only">
+            {t.songs.searchLabel}
+          </label>
+          <SearchIcon />
+          <input
+            ref={input}
+            id="qs"
+            type="search"
+            placeholder={t.songs.search}
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            autoComplete="off"
+          />
+        </div>
+      )}
 
-      <div className="filter-chips">
-        <button
-          type="button"
-          className="filter-chip"
-          aria-pressed={!anyFilter}
-          onClick={() => {
-            haptic.tap();
-            setFilters(NO_FILTERS);
-          }}
-        >
-          {t.songs.filters.all}
-        </button>
+      <button
+        type="button"
+        className="add-song"
+        onClick={() => {
+          haptic.tap();
+          if (quota?.left === 0) onLimit();
+          else onAnalyze();
+        }}
+      >
+        <span className="add-song-icon">
+          <Icon size={22}>
+            <path d="M12 5v14M5 12h14" />
+          </Icon>
+        </span>
+        <span className="add-song-text">
+          <span className="add-song-title">{t.songs.addTitle}</span>
+          <span className="add-song-sub">{t.songs.addSub}</span>
+        </span>
+        {quota && (
+          <span className="add-song-quota" aria-label={t.songs.quotaAria(quota.left, quota.limit)}>
+            {quota.left}/{quota.limit}
+          </span>
+        )}
+      </button>
+
+      <div className="chip-row" role="group" aria-label={t.songs.filtersLabel}>
         {FILTERS.map((f) => (
-          <button
-            key={f}
-            type="button"
-            className="filter-chip"
-            aria-pressed={filters[f]}
-            onClick={() => {
-              haptic.tap();
-              setFilters((prev) => ({ ...prev, [f]: !prev[f] }));
-            }}
-          >
+          <Chip key={f} selected={filter === f} onClick={() => setFilter(f)}>
             {t.songs.filters[f]}
-          </button>
+          </Chip>
         ))}
       </div>
 
-      {cont && (
-        <button type="button" className="continue-card" onClick={() => open(cont.song)}>
-          <span className="continue-text">
-            <span className="continue-label">{t.songs.continue}</span>
-            <span className="continue-title">{cont.song.title}</span>
-            <span className="continue-chords">{chordLine(cont.song.chords_preview, notation)}</span>
-            <span className="continue-bar">
-              <span
-                style={{
-                  width: `${Math.min(100, (cont.position_sec / cont.song.duration_sec) * 100)}%`,
-                }}
-              />
-            </span>
-          </span>
-          <span className="continue-play" aria-hidden="true">
-            <PlayIcon size={18} />
-          </span>
-        </button>
-      )}
-
-      <div className="song-list scroll-y">
+      <div className="song-list-v3 scroll-y">
         {failed ? (
           <div className="song-list-note">
             <p>{t.loadFailed}</p>
@@ -173,9 +171,9 @@ export function SongsList({ notation, isAdmin, onOpen, onLocked, onAdmin, onAnal
           </div>
         ) : !data ? (
           Array.from({ length: 5 }, (_, i) => (
-            <div key={i} className="song-row skeleton" aria-hidden="true">
-              <span className="song-tile" />
-              <span className="song-text">
+            <div key={i} className="song-row-v3 skeleton" aria-hidden="true">
+              <span className="song-row-tile" />
+              <span className="song-row-text">
                 <span className="sk-line" style={{ width: "55%" }} />
                 <span className="sk-line" style={{ width: "35%" }} />
               </span>
@@ -183,45 +181,24 @@ export function SongsList({ notation, isAdmin, onOpen, onLocked, onAdmin, onAnal
           ))
         ) : data.songs.length === 0 ? (
           <div className="song-list-note muted">
-            {q.trim() || anyFilter ? t.songs.notFound : t.songs.empty}
+            {filter === "saved" && !q.trim()
+              ? t.songs.noSaved
+              : q.trim() || filter !== "all"
+                ? t.songs.notFound
+                : t.songs.empty}
           </div>
         ) : (
           data.songs.map((s) => (
-            <button key={s.id} type="button" className="song-row" onClick={() => open(s)}>
-              <span className="song-tile" aria-hidden="true">
-                <PlayIcon size={16} />
-                {s.locked && (
-                  <span className="song-lock">
-                    <svg
-                      width="10"
-                      height="10"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="#FFFFFF"
-                      strokeWidth="3"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <rect x="5" y="11" width="14" height="9" rx="2" />
-                      <path d="M8 11V8a4 4 0 0 1 8 0v3" />
-                    </svg>
-                  </span>
-                )}
-              </span>
-              <span className="song-text">
-                <span className="song-title">{s.title}</span>
-                <span className="song-artist">
-                  {s.artist}
-                  {isAdmin && !s.is_published && ` · ${t.songs.draft}`}
-                </span>
-                {s.chords_preview.length > 0 && (
-                  <span className="song-chords">{chordLine(s.chords_preview, notation)}</span>
-                )}
-              </span>
-              <span className={`tag ${s.locked ? "premium" : s.difficulty}`}>
-                {s.locked ? t.songs.premium : t.songs.levels[s.difficulty]}
-              </span>
-            </button>
+            <SongRow
+              key={s.id}
+              id={s.id}
+              title={s.title}
+              artist={isAdmin && !s.is_published ? `${s.artist} · ${t.songs.draft}` : s.artist}
+              difficulty={s.difficulty}
+              chords={previewLine(s.chords_preview, notation)}
+              locked={s.locked}
+              onClick={() => open(s)}
+            />
           ))
         )}
       </div>

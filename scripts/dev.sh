@@ -259,8 +259,15 @@ if [ -z "$no_worker" ]; then
 fi
 
 if [ -z "$no_web" ]; then
-  start_service web "$ROOT/webapp" npm run dev
-  ok "Webapp: http://localhost:$WEB_PORT"
+  if [ -z "$no_tunnel" ]; then
+    # Telegram testing: no HMR, so a dropped tunnel socket can't reload the page mid-game.
+    # Edits show after reopening the app (or a manual reload).
+    start_service web "$ROOT/webapp" env VITE_HMR=off npm run dev
+    ok "Webapp: http://localhost:$WEB_PORT  (HMR off: reopen the app to see edits)"
+  else
+    start_service web "$ROOT/webapp" npm run dev
+    ok "Webapp: http://localhost:$WEB_PORT"
+  fi
 fi
 
 if [ -z "$no_bot" ]; then

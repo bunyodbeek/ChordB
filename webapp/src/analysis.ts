@@ -54,9 +54,16 @@ export function rememberFile(analysisId: number, file: File): string {
 
 export const localFileUrl = (analysisId: number) => localFiles.get(analysisId) ?? null;
 
+/**
+ * A detected chord below this confidence is marked "?" in the player. On synthetic songs
+ * it marks about one chord in eight, and two of three it marks are wrong.
+ */
+export const UNSURE_BELOW = 0.5;
+
 /** The parts of the player model that come from the analysis itself. */
 export function analysisTimeline(a: AnalysisDetail) {
-  const { events, sections } = autoTimeline(a.events ?? [], t.analyze.part);
+  const segments = (a.events ?? []).map((e) => ({ ...e, unsure: e.confidence < UNSURE_BELOW }));
+  const { events, sections } = autoTimeline(segments, t.analyze.part);
   const lastEnd = a.events?.length ? a.events[a.events.length - 1].end_sec : 0;
   return {
     events,

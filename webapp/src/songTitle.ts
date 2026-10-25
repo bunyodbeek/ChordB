@@ -1,7 +1,5 @@
 // What the player's app bar shows for a song: a clean title and an artist line.
 // Only the display is cleaned; the raw (YouTube) title stays in the database.
-import { isEasyShape, transpose } from "./chords";
-import type { Chord } from "./notation";
 
 export interface DisplayTitle {
   title: string;
@@ -54,38 +52,4 @@ export function displayTitle(raw: string, artist: string | null = null): Display
 /** The app bar's second line: "Alan Walker · cover". */
 export function artistLine(d: DisplayTitle, fallback: string): string {
   return [d.artist ?? fallback, d.cover ? "cover" : null].filter(Boolean).join(" · ");
-}
-
-const MAX_SUGGESTED_CAPO = 7;
-
-/** Distinct chords in song order. */
-export function distinct(chords: readonly Chord[]): Chord[] {
-  const out: Chord[] = [];
-  for (const c of chords) {
-    if (!out.some((o) => o.root === c.root && o.quality === c.quality)) out.push(c);
-  }
-  return out;
-}
-
-const hardShapes = (chords: readonly Chord[], capo: number) =>
-  chords.filter((c) => !isEasyShape(transpose(c, -capo))).length;
-
-/**
- * The capo that turns the most chords into open shapes, or null when none helps.
- * `chords` are as they sound; with capo N each is played as the shape N semitones lower.
- */
-export function suggestCapo(chords: readonly Chord[], currentCapo: number): number | null {
-  const unique = distinct(chords);
-  if (!unique.length) return null;
-  let best = 0;
-  let bestHard = Infinity;
-  // Ascending, so the lowest capo wins a tie.
-  for (let capo = 0; capo <= MAX_SUGGESTED_CAPO; capo++) {
-    const hard = hardShapes(unique, capo);
-    if (hard < bestHard) {
-      best = capo;
-      bestHard = hard;
-    }
-  }
-  return bestHard < hardShapes(unique, currentCapo) ? best : null;
 }

@@ -30,11 +30,6 @@ export function spelled(chord: { root: number; quality: Quality }): Chord {
   return { root: mod12(chord.root), quality: chord.quality, flat: prefersFlat(chord.root) };
 }
 
-/** Chord moved by `semitones`, spelled the usual guitar way for its new root. */
-export function transpose(chord: Chord, semitones: number): Chord {
-  return spelled({ ...chord, root: chord.root + semitones });
-}
-
 /** Open-string pitches as MIDI numbers, string 6 (low E) first. */
 export const OPEN_MIDI = [40, 45, 50, 55, 59, 64];
 
@@ -130,6 +125,34 @@ export function voicing(chord: Chord): Voicing {
   return eFret <= aFret
     ? shift(E_SHAPE[chord.quality], eFret)
     : shift(A_SHAPE[chord.quality], aFret);
+}
+
+const MAX_POSITION = 12; // the highest barre fret offered
+
+/**
+ * Every voicing the player offers for a chord (the card's "‹ 1/3 ›"): the open shape
+ * first, then the E- and A-shape barres up the neck, lowest fret first. Am: x02210,
+ * 577555, x-12-14-14-13-12; C: x32010, x35553, 8-10-10-9-8-8.
+ */
+export function voicings(chord: Chord): Voicing[] {
+  const key = openKey(chord);
+  const open = key && OPEN[key] ? { frets: OPEN[key], barre: null } : null;
+  const moved: Voicing[] = [];
+  for (const [shape, stringPc] of [[E_SHAPE, 4], [A_SHAPE, 9]] as const) {
+    const first = mod12(chord.root - stringPc);
+    for (const fret of [first, first + 12]) {
+      // Fret 0 is an open shape: the table's, when it has one.
+      if (fret > MAX_POSITION || (fret === 0 && open)) continue;
+      moved.push(shift(shape[chord.quality], fret));
+    }
+  }
+  const lowest = (v: Voicing) => Math.min(99, ...v.frets.filter((f) => f > 0));
+  moved.sort((a, b) => lowest(a) - lowest(b));
+  const out: Voicing[] = open ? [open] : [];
+  for (const v of moved) {
+    if (!out.some((o) => o.frets.join() === v.frets.join())) out.push(v);
+  }
+  return out;
 }
 
 /** Pitch classes actually sounded by a voicing. */

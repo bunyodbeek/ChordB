@@ -39,24 +39,54 @@ export interface SongSummary {
   id: number;
   title: string;
   artist: string;
+  youtube_id: string;
   key: ChordJson;
   capo: number;
   difficulty: Difficulty;
+  difficulty_auto: boolean; // follows the chords (the admin form's "Avto")
   language: string;
   is_premium: boolean;
   is_published: boolean;
   duration_sec: number;
   created_at: string;
   locked: boolean; // premium song this user can't open
+  saved: boolean; // this user saved it (the player's bookmark)
   chords_preview: ChordJson[];
 }
 
-export interface SongDetail extends SongSummary {
-  youtube_id: string;
-  sections: { id: number; order: number; title: string; start_sec: number }[];
-  events: (ChordJson & { time_sec: number; section_id: number | null })[];
-  position_sec: number | null; // where this user stopped last time
+export type TimeSignature = "2/4" | "3/4" | "4/4" | "6/8";
+
+/** One bar of eight eighth notes: D down, U up, - rest, x chuck. */
+export interface StrumPattern {
+  id: number;
+  name: string;
+  slots: string;
+  is_premium: boolean;
+  locked: boolean; // premium and this user hasn't got it (the trainer's lock)
 }
+
+export interface SongDetail extends SongSummary {
+  sections: { id: number; order: number; title: string; start_sec: number }[];
+  // strum_pattern_id: a different pattern from this chord on; null = the song's.
+  events: (ChordJson & { id: number; time_sec: number; section_id: number | null; strum_pattern_id: number | null })[];
+  position_sec: number | null; // where this user stopped last time
+  strum_pattern_id: number | null; // the default pattern when the admin picked none
+  strum_patterns: StrumPattern[]; // every pattern the song or its events use
+  bpm: number | null; // the admin's
+  bpm_detected: number | null; // from an analysis of the video, when bpm is null
+  beats: number[] | null; // beat times (s) from that analysis: the player's bar grid
+  time_signature: TimeSignature;
+  settings: PlayerSettings | null; // this user's, null until they change something
+}
+
+/** How a user plays a song: capo, semitones up/down, simplified chords. Kept per song. */
+export interface PlayerSettings {
+  capo: number;
+  shift: number;
+  simple: boolean;
+}
+
+export type SongKind = "song" | "analysis";
 
 /** Song fields an admin edits (POST /api/admin/songs). */
 export interface SongInput {
@@ -65,15 +95,18 @@ export interface SongInput {
   youtube_id: string;
   key: ChordJson; // maj or min
   capo: number;
-  difficulty: Difficulty;
+  difficulty: Difficulty | "auto"; // auto: the server picks it from the chords and capo
   language: string;
   is_premium: boolean;
   duration_sec: number;
+  strum_pattern_id?: number | null; // null = the default pattern
+  bpm?: number | null; // null = from the analysis
+  time_signature?: TimeSignature;
 }
 
 export interface TimelineInput {
   sections: { title: string; start_sec: number }[];
-  events: (ChordJson & { time_sec: number })[];
+  events: (ChordJson & { time_sec: number; strum_pattern_id?: number | null })[];
 }
 
 export interface SongsResponse {
@@ -81,11 +114,17 @@ export interface SongsResponse {
   songs: SongSummary[];
 }
 
+export interface HomeData {
+  recommended: SongSummary | null; // null once every openable song has been opened
+  streak: number;
+  popular: SongSummary[];
+  premium_price_month: number; // soʻm
+}
+
 export interface SongFilters {
   q?: string;
-  easy?: boolean;
-  uzbek?: boolean;
-  no_capo?: boolean;
+  difficulty?: Difficulty;
+  saved?: boolean;
 }
 
 export type EventType =
@@ -206,10 +245,27 @@ export interface EarFinish {
   mistakes: { question_id: number; asked: EarSide; answered: EarSide }[];
 }
 
+// --- rhythm trainer (/api/strum) ---
+
+export interface StrumPatternProgress {
+  pattern_id: number;
+  unlocked_bpm: number; // the fastest tempo allowed with this pattern
+  best: Record<string, number>; // bpm → best accuracy (0..1)
+  mastered: boolean;
+}
+
+export interface StrumProgress {
+  ladder: number[]; // 60, 80, 100, 120
+  unlock_accuracy: number; // 0.9
+  patterns: StrumPatternProgress[];
+  mastered: number;
+  top_bpm: number | null;
+}
+
 // --- premium payments (/api/payments) ---
 
 export interface Plan {
-  id: "month" | "year";
+  id: "month" | "quarter";
   days: number;
   price: number; // soʻm
 }
@@ -232,6 +288,7 @@ export interface PaymentInfo {
   card_holder: string;
   plans: Plan[];
   latest: Payment | null; // pending, or the last decision
+  premium_songs: number; // published premium songs
 }
 
 // --- admin panel (/api/admin) ---
@@ -350,7 +407,22 @@ export interface AnalysisEvent {
 
 export interface AnalysisDetail extends AnalysisSummary {
   beats: number[] | null; // set once done
-  events: AnalysisEvent[] | null;
+  events: AnalysisEvent[] | null; // with this user's own fixes applied
+  settings: PlayerSettings | null;
+}
+
+export interface ChordSuggestion {
+  id: number;
+  song_id: number;
+  song_title: string;
+  song_artist: string;
+  youtube_id: string;
+  user: UserBrief;
+  times: number[];
+  old_chord: ChordJson;
+  new_chord: ChordJson;
+  status: "pending" | "accepted" | "rejected";
+  created_at: string;
 }
 
 export interface AnalysisHistory {
@@ -450,9 +522,8 @@ function upload<T>(
 function query(filters: SongFilters): string {
   const p = new URLSearchParams();
   if (filters.q?.trim()) p.set("q", filters.q.trim());
-  if (filters.easy) p.set("easy", "true");
-  if (filters.uzbek) p.set("uzbek", "true");
-  if (filters.no_capo) p.set("no_capo", "true");
+  if (filters.difficulty) p.set("difficulty", filters.difficulty);
+  if (filters.saved) p.set("saved", "true");
   const s = p.toString();
   return s ? `?${s}` : "";
 }
@@ -466,9 +537,21 @@ export const api = {
   songs: (filters: SongFilters, signal?: AbortSignal) =>
     request<SongsResponse>("GET", `/songs${query(filters)}`, undefined, signal),
   song: (id: number) => request<SongDetail>("GET", `/songs/${id}`),
+  home: () => request<HomeData>("GET", "/home"),
+  setSaved: (id: number, saved: boolean) =>
+    request<void>(saved ? "PUT" : "DELETE", `/songs/${id}/saved`),
   // Best effort, like events: losing one progress save must not break playback.
   saveProgress: (id: number, positionSec: number) =>
     request<void>("PUT", `/songs/${id}/progress`, { position_sec: positionSec }).catch(() => {}),
+  // Best effort too: the player keeps working with what is on screen.
+  saveSettings: (kind: SongKind, refId: number, s: PlayerSettings) =>
+    request<void>("PUT", "/song-settings", { kind, ref_id: refId, ...s }).catch(() => {}),
+  suggestChord: (songId: number, eventIds: number[], chord: ChordJson) =>
+    request<{ id: number; status: string; remaining_today: number }>(
+      "POST",
+      `/songs/${songId}/chord-suggestions`,
+      { event_ids: eventIds, new_chord: chord },
+    ),
 
   analyze: {
     youtube: (url: string) =>
@@ -477,6 +560,8 @@ export const api = {
       upload<AnalysisDetail>("/analyze", file, onProgress),
     get: (id: number) => request<AnalysisDetail>("GET", `/analyze/${id}`),
     history: () => request<AnalysisHistory>("GET", "/analyze/history"),
+    fixEvents: (id: number, changes: (ChordJson & { index: number })[]) =>
+      request<AnalysisDetail>("PATCH", `/analyze/${id}/events`, { changes }),
   },
 
   practice: {
@@ -496,6 +581,13 @@ export const api = {
     answer: (runId: string, questionId: number, choice: string) =>
       request<EarAnswer>("POST", `/ear/runs/${runId}/answer`, { question_id: questionId, choice }),
     finish: (runId: string) => request<EarFinish>("POST", `/ear/runs/${runId}/finish`),
+  },
+
+  strum: {
+    patterns: () => request<StrumPattern[]>("GET", "/strum-patterns"),
+    progress: () => request<StrumProgress>("GET", "/strum/progress"),
+    save: (patternId: number, bpm: number, accuracy: number) =>
+      request<StrumProgress>("POST", "/strum/progress", { pattern_id: patternId, bpm, accuracy }),
   },
 
   payments: {
@@ -534,5 +626,8 @@ export const api = {
       request<SongDetail>("PUT", `/admin/songs/${id}/events`, body),
     publish: (id: number, isPublished: boolean) =>
       request<SongSummary>("PATCH", `/admin/songs/${id}/publish`, { is_published: isPublished }),
+    suggestions: () => request<ChordSuggestion[]>("GET", "/admin/chord-suggestions"),
+    decide: (id: number, decision: "accept" | "reject") =>
+      request<ChordSuggestion>("POST", `/admin/chord-suggestions/${id}/${decision}`),
   },
 };

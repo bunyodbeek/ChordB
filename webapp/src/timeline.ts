@@ -97,6 +97,7 @@ export const AUTO_SECTION_LEN = 8;
 export interface AutoSegment<C> {
   start_sec: number;
   chord: C | null; // null = no chord
+  unsure?: boolean; // the detector was not confident about this chord
 }
 
 /**
@@ -106,11 +107,12 @@ export interface AutoSegment<C> {
 export function autoTimeline<C>(
   segments: readonly AutoSegment<C>[],
   title: (n: number) => string,
-): { events: (TimedEvent & { chord: C | null })[]; sections: TimedSection[] } {
+): { events: (TimedEvent & { chord: C | null; unsure?: boolean })[]; sections: TimedSection[] } {
   const events = segments.map((s, i) => ({
     time_sec: s.start_sec,
     section_id: Math.floor(i / AUTO_SECTION_LEN) + 1,
     chord: s.chord,
+    ...(s.unsure && s.chord ? { unsure: true } : {}),
   }));
   const sections: TimedSection[] = [];
   for (let i = 0; i < events.length; i += AUTO_SECTION_LEN) {

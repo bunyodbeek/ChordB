@@ -4,9 +4,10 @@
 import type { EarProgress } from "../../api";
 import type { NotationKind } from "../../notation";
 import { earPoolLabel } from "../../practice";
-import { useBackButton } from "../../telegram";
+import { haptic, useBackButton } from "../../telegram";
 import { t } from "../../texts";
 import { Screen } from "../Screen";
+import { LockBadge } from "../ui";
 
 interface Props {
   progress: EarProgress | null;
@@ -17,10 +18,24 @@ interface Props {
   onStart: (level: number) => void;
   onResume: (runId: string) => void;
   onRetry: () => void;
+  isPremium: boolean;
+  onPremium: (level: number) => void; // a premium level, tapped without premium
   onBack: () => void;
 }
 
-export function EarLevels({ progress, failed, busyLevel, error, notation, onStart, onResume, onRetry, onBack }: Props) {
+export function EarLevels({
+  progress,
+  failed,
+  busyLevel,
+  error,
+  notation,
+  onStart,
+  onResume,
+  onRetry,
+  onBack,
+  isPremium,
+  onPremium,
+}: Props) {
   useBackButton(onBack);
   const streak = progress?.perfect_streak ?? 0;
   const right =
@@ -31,7 +46,7 @@ export function EarLevels({ progress, failed, busyLevel, error, notation, onStar
     ) : undefined;
 
   return (
-    <Screen title={t.practice.earTitle} sub={t.practice.levelsRule} right={right} bodyClassName="ear-levels scroll-y">
+    <Screen title={t.practice.earTitle} onBack={onBack} sub={t.practice.levelsRule} right={right} bodyClassName="ear-levels scroll-y">
       {error && (
         <p className="editor-status error" role="alert">
           {error}
@@ -63,7 +78,7 @@ export function EarLevels({ progress, failed, busyLevel, error, notation, onStar
               <span className="ear-level-text">
                 <span className="ear-level-head">
                   <span className="ear-level-title">{t.practice.levelTitle(lv.level, lv.title)}</span>
-                  {lv.premium && <span className="ear-level-premium">{t.songs.premium}</span>}
+                  {lv.premium && isPremium && <span className="ear-level-premium">{t.songs.premium}</span>}
                 </span>
                 <span className="ear-level-pool">
                   {current && lv.best !== null ? `${pool} · ${t.practice.bestScore(lv.best)}` : pool}
@@ -71,6 +86,23 @@ export function EarLevels({ progress, failed, busyLevel, error, notation, onStar
               </span>
             </>
           );
+          // Without premium a premium level is never played: its lock opens the sheet.
+          if (lv.premium && !isPremium) {
+            return (
+              <button
+                key={lv.level}
+                type="button"
+                className="ear-level premium-locked"
+                onClick={() => {
+                  haptic.tap();
+                  onPremium(lv.level);
+                }}
+              >
+                {body}
+                <LockBadge />
+              </button>
+            );
+          }
           if (current || active) {
             return (
               <div key={lv.level} className={`ear-level${current ? " now" : ""}`}>

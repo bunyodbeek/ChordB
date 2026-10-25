@@ -9,7 +9,7 @@ import { formatChord, type Chord, type NotationKind } from "../../notation";
 import { haptic } from "../../telegram";
 import { t } from "../../texts";
 import { useChordListener } from "../../useChordListener";
-import { BigChordDiagram } from "./BigChordDiagram";
+import { ChordDiagram } from "../ChordDiagram";
 
 const STRING_NAMES = ["E", "A", "D", "G", "B", "e"];
 
@@ -77,7 +77,7 @@ export function ChordTrySheet({ chords, start, caption, notation, onUnlocked, on
           </button>
         </div>
         <span className={`try-name${notation === "solfege" ? " sol" : ""}`}>{name}</span>
-        <BigChordDiagram frets={frets} label={t.player.diagram(name)} />
+        <ChordDiagram frets={frets} label={t.player.diagram(name)} size="lg" fingers />
 
         <div className="try-strings" aria-label={t.practice.strings}>
           {STRING_NAMES.map((s, k) => {

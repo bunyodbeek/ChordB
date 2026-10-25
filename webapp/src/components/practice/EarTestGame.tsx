@@ -11,16 +11,10 @@ import type { NotationKind } from "../../notation";
 import { chordsLabel, EAR_QUESTIONS, earOptionLabel } from "../../practice";
 import { haptic, useBackButton } from "../../telegram";
 import { t } from "../../texts";
-import { MiniChordDiagram, type MiniColors } from "../ChordDiagram";
+import { ChordDiagram } from "../ChordDiagram";
 import { Screen } from "../Screen";
-import { BigChordDiagram } from "./BigChordDiagram";
 
 type Answered = EarAnswer & { choice: string };
-
-const PROGRESSION_COLORS: Record<"ok" | "bad", MiniColors> = {
-  ok: { fg: "var(--text)", line: "#c4c7c1", dot: "var(--success)" },
-  bad: { fg: "var(--text)", line: "#c4c7c1", dot: "var(--blue)" },
-};
 
 interface Props {
   run: EarRun;
@@ -148,21 +142,22 @@ export function EarTestGame({ run, notation, onFinished, onExpired, onBack }: Pr
         {progression ? (
           <div className="ear-reveal-row">
             {question.voicing.map((frets, i) => (
-              <MiniChordDiagram
+              <ChordDiagram
                 key={i}
                 frets={frets}
-                colors={PROGRESSION_COLORS[tone]}
                 label={t.player.diagram(chordsLabel([answer.played[i]], notation))}
-                big
+                size="md"
+                tone={answer.correct ? "green" : "accent"}
               />
             ))}
           </div>
         ) : (
-          <BigChordDiagram
+          <ChordDiagram
             frets={question.voicing[0]}
             label={t.player.diagram(name)}
-            tone={answer.correct ? "green" : "blue"}
-            barreFret
+            size="lg"
+            tone={answer.correct ? "green" : "accent"}
+            fingers
           />
         )}
         {answer.correct ? (
@@ -181,7 +176,7 @@ export function EarTestGame({ run, notation, onFinished, onExpired, onBack }: Pr
   }
 
   return (
-    <Screen title={t.practice.earTitle} right={right} bodyClassName="game-body ear-body">
+    <Screen title={t.practice.earTitle} onBack={onBack} right={right} bodyClassName="game-body ear-body">
       <div className="ear-dots" aria-label={t.practice.questions}>
         {Array.from({ length: EAR_QUESTIONS }, (_, i) => (
           <span

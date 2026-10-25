@@ -6,7 +6,7 @@ import { api } from "../api";
 import { saveTuningResidual } from "../practice";
 import type { NotationKind } from "../notation";
 import { centsOff } from "../pitch";
-import { canRequestWriteAccess, haptic, requestWriteAccess } from "../telegram";
+import { canRequestWriteAccess, haptic, requestWriteAccess, useBackButton } from "../telegram";
 import { t } from "../texts";
 import {
   IN_TUNE_CENTS,
@@ -31,6 +31,7 @@ interface Props {
   onWriteAccessAsked: () => void;
   preset: PresetId; // remembered by App (tuning.ts savePreset)
   onPresetChange: (id: PresetId) => void;
+  onBack: () => void;
 }
 
 export function Tuner({
@@ -40,7 +41,9 @@ export function Tuner({
   onWriteAccessAsked,
   preset,
   onPresetChange,
+  onBack,
 }: Props) {
+  useBackButton(onBack);
   const { status, freq, start } = useTuner();
   const [selected, setSelected] = useState<number | null>(null); // string number, null = auto
   const [tuned, setTuned] = useState<ReadonlySet<number>>(new Set());
@@ -151,7 +154,7 @@ export function Tuner({
   );
 
   return (
-    <Screen title={t.tuneTitle} right={right} className="tuner" bodyClassName="tuner-body">
+    <Screen title={t.tuneTitle} onBack={onBack} right={right} className="tuner" bodyClassName="tuner-body">
       <Meter
         cents={cents}
         label={shownTarget ? stringName(shownTarget.pc, notation, tuning.flat) : ""}

@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     payment_card: str = ""  # shown to the user, e.g. "8600 1234 5678 9012"
     payment_card_holder: str = ""
     premium_price_month: int = 20_000  # soʻm, 30 days
-    premium_price_year: int = 150_000  # soʻm, 365 days
+    premium_price_quarter: int = 45_000  # soʻm, 90 days
 
     # For song links like t.me/<bot_username>/<webapp_short_name>?startapp=song_12.
     # Without a short name the link opens the bot's main Mini App.

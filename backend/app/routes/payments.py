@@ -3,11 +3,11 @@
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Form, HTTPException, UploadFile, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from chordb_common.config import get_settings
-from chordb_common.models import Payment, PaymentStatus
+from chordb_common.models import Payment, PaymentStatus, Song
 
 from app.alerts import send_admin_alert
 from app.deps import CurrentUser, Session
@@ -42,6 +42,9 @@ async def info(user: CurrentUser, session: Session) -> PaymentInfoOut:
         card_holder=s.payment_card_holder,
         plans=[PlanOut(id=p.id, days=p.days, price=p.price) for p in plans().values()],
         latest=PaymentOut.build(latest) if latest else None,
+        premium_songs=await session.scalar(
+            select(func.count()).select_from(Song).where(Song.is_premium, Song.is_published)
+        ),
     )
 
 

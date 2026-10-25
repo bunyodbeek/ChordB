@@ -1,10 +1,11 @@
 import re
 import uuid
 from datetime import date, datetime
-from typing import Literal
+from typing import ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from chordb_common import strum
 from chordb_common.config import get_settings
 from chordb_common.practice import is_valid_zone
 from chordb_common.models import (
@@ -20,6 +21,8 @@ from chordb_common.models import (
     PremiumEventKind,
     Quality,
     Song,
+    SongKind,
+    SuggestionStatus,
     UnlockMode,
     User,
 )
@@ -127,9 +130,11 @@ class SongSummary(BaseModel):
     id: int
     title: str
     artist: str
+    youtube_id: str
     key: ChordModel
     capo: int
     difficulty: Difficulty
+    difficulty_auto: bool  # follows the chords (the admin form's "Avto")
     language: str
     is_premium: bool
     is_published: bool
@@ -137,26 +142,39 @@ class SongSummary(BaseModel):
     created_at: datetime
     # True when the song is premium and this user may not open it.
     locked: bool
+    saved: bool  # this user saved it
     # First distinct chords of the timeline, for the list preview.
     chords_preview: list[ChordModel]
 
     @classmethod
-    def build(cls, s: Song, *, locked: bool, preview: list[ChordModel]) -> "SongSummary":
+    def build(
+        cls, s: Song, *, locked: bool, saved: bool, preview: list[ChordModel]
+    ) -> "SongSummary":
         return cls(
             id=s.id,
             title=s.title,
             artist=s.artist,
+            youtube_id=s.youtube_id,
             key=ChordModel(root=s.key_root, quality=s.key_quality),
             capo=s.capo,
             difficulty=s.difficulty,
+            difficulty_auto=s.difficulty_auto,
             language=s.language,
             is_premium=s.is_premium,
             is_published=s.is_published,
             duration_sec=s.duration_sec,
             created_at=s.created_at,
             locked=locked,
+            saved=saved,
             chords_preview=preview,
         )
+
+
+class HomeOut(BaseModel):
+    recommended: SongSummary | None  # None once every openable song has been opened
+    streak: int  # current practice streak, days
+    popular: list[SongSummary]
+    premium_price_month: int  # soʻm, for the premium card (hidden from premium users)
 
 
 class ContinueOut(BaseModel):
@@ -177,17 +195,53 @@ class SectionOut(BaseModel):
 
 
 class ChordEventOut(BaseModel):
+    id: int  # for chord suggestions
     time_sec: float
     section_id: int | None
     root: int
     quality: Quality
+    strum_pattern_id: int | None  # from here on, instead of the song's; None = the song's
+
+
+class StrumPatternOut(BaseModel):
+    id: int
+    name: str
+    slots: str  # eight eighth notes: D down, U up, - rest, x chuck
+    is_premium: bool
+    locked: bool  # premium and this user hasn't got it (the trainer's lock)
+
+
+TimeSignature = Literal["2/4", "3/4", "4/4", "6/8"]
+
+
+class PlayerSettings(BaseModel):
+    """How this user plays the song: capo, semitones up/down, simplified chords."""
+
+    capo: int = Field(ge=0, le=12)
+    shift: int = Field(ge=-11, le=11)
+    simple: bool  # 7, maj7, m7, sus2, sus4 shown as plain major/minor
+
+
+class PlayerSettingsIn(PlayerSettings):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: SongKind
+    ref_id: int  # songs.id or analyses.id
 
 
 class SongDetail(SongSummary):
-    youtube_id: str
     sections: list[SectionOut]
     events: list[ChordEventOut]
     position_sec: float | None  # where this user stopped last time
+    # The strumming row: the song's pattern (the default one when it has none), and
+    # every pattern the song or its events use.
+    strum_pattern_id: int | None
+    strum_patterns: list[StrumPatternOut]
+    bpm: float | None  # set by the admin
+    bpm_detected: float | None  # from a finished analysis of the video, when bpm is None
+    beats: list[float] | None  # beat times (s) from that analysis: the player's bar grid
+    time_signature: TimeSignature
+    settings: PlayerSettings | None  # this user's, None until they change something
 
 
 class ProgressIn(BaseModel):
@@ -218,10 +272,13 @@ class SongIn(BaseModel):
     youtube_id: str
     key: KeyModel
     capo: int = Field(default=0, ge=0, le=12)
-    difficulty: Difficulty
+    difficulty: Difficulty | Literal["auto"] = "auto"  # auto: from the chords and capo
     language: str = Field(default="uz", min_length=2, max_length=8)
     is_premium: bool = False
     duration_sec: int = Field(gt=0, le=60 * 60)
+    strum_pattern_id: int | None = None  # None = the default pattern
+    bpm: float | None = Field(default=None, ge=30, le=300)  # None = from the analysis
+    time_signature: TimeSignature = strum.DEFAULT_TIME_SIGNATURE
 
     @field_validator("youtube_id")
     @classmethod
@@ -232,7 +289,9 @@ class SongIn(BaseModel):
 
 
 class SongPatch(BaseModel):
-    """Any subset of SongIn's fields."""
+    """Any subset of SongIn's fields. Only NULLABLE ones may be sent as null."""
+
+    NULLABLE: ClassVar[frozenset[str]] = frozenset({"strum_pattern_id", "bpm"})
 
     model_config = ConfigDict(extra="forbid")
 
@@ -241,10 +300,13 @@ class SongPatch(BaseModel):
     youtube_id: str | None = None
     key: KeyModel | None = None
     capo: int | None = Field(default=None, ge=0, le=12)
-    difficulty: Difficulty | None = None
+    difficulty: Difficulty | Literal["auto"] | None = None
     language: str | None = Field(default=None, min_length=2, max_length=8)
     is_premium: bool | None = None
     duration_sec: int | None = Field(default=None, gt=0, le=60 * 60)
+    strum_pattern_id: int | None = None
+    bpm: float | None = Field(default=None, ge=30, le=300)
+    time_signature: TimeSignature | None = None
 
     @field_validator("youtube_id")
     @classmethod
@@ -263,6 +325,7 @@ class SectionIn(BaseModel):
 
 class ChordEventIn(ChordModel):
     time_sec: float = Field(ge=0)
+    strum_pattern_id: int | None = None  # a different pattern from this chord on
 
 
 class TimelineIn(BaseModel):
@@ -357,11 +420,49 @@ class AnalysisSummary(BaseModel):
 
 class AnalysisOut(AnalysisSummary):
     beats: list[float] | None  # set once done
-    events: list[AnalysisEventOut] | None
+    events: list[AnalysisEventOut] | None  # with the user's own fixes applied
+    settings: PlayerSettings | None = None  # the player's, for this user
 
     @classmethod
-    def build(cls, a: Analysis) -> "AnalysisOut":
-        return cls(**cls._fields(a), beats=a.beats, events=a.events)
+    def build(
+        cls,
+        a: Analysis,
+        fixes: dict[int, tuple[int, Quality]] | None = None,
+        settings: PlayerSettings | None = None,
+    ) -> "AnalysisOut":
+        events = a.events
+        if events and fixes:
+            # A chord the user fixed is sure: the player stops marking it as a guess.
+            events = [
+                {**e, "chord": {"root": fixes[i][0], "quality": fixes[i][1]}, "confidence": 1.0}
+                if i in fixes
+                else e
+                for i, e in enumerate(events)
+            ]
+        return cls(**cls._fields(a), beats=a.beats, events=events, settings=settings)
+
+
+class EventFix(ChordModel):
+    index: int = Field(ge=0)  # into the analysis' events
+
+
+class EventFixesIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    changes: list[EventFix] = Field(min_length=1, max_length=2000)
+
+
+class ChordSuggestionIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    event_ids: list[int] = Field(min_length=1, max_length=2000)
+    new_chord: ChordModel
+
+
+class ChordSuggestionOut(BaseModel):
+    id: int
+    status: SuggestionStatus
+    remaining_today: int
 
 
 class AnalysisHistoryOut(BaseModel):
@@ -373,7 +474,7 @@ class AnalysisHistoryOut(BaseModel):
 # --- premium payments ------------------------------------------------------------------
 
 class PlanOut(BaseModel):
-    id: str  # "month" | "year"
+    id: str  # "month" | "quarter" (older payments may say "year")
     days: int
     price: int  # soʻm
 
@@ -403,6 +504,7 @@ class PaymentInfoOut(BaseModel):
     card_holder: str
     plans: list[PlanOut]
     latest: PaymentOut | None  # pending, or the last decision
+    premium_songs: int  # published premium songs: "“Perfect” va yana N ta qoʻshiq ochiladi"
 
 
 # --- admin panel ---------------------------------------------------------------------
@@ -716,3 +818,42 @@ class EarFinishOut(BaseModel):
     max_unlocked_level: int
     best: int  # for this level, after this run
     mistakes: list[EarMistake]
+
+
+# --- rhythm trainer (/api/strum) ---------------------------------------------------------
+
+class StrumProgressIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    pattern_id: int
+    bpm: int = Field(ge=strum.BPM_MIN, le=strum.BPM_MAX, multiple_of=strum.BPM_STEP)
+    accuracy: float = Field(ge=0, le=1)  # on-time strokes / expected, over the last 4 bars
+
+
+class StrumPatternProgress(BaseModel):
+    pattern_id: int
+    unlocked_bpm: int  # the fastest tempo the trainer allows with this pattern
+    best: dict[int, float]  # bpm → best accuracy
+    mastered: bool  # ≥ 90% at the top of the ladder
+
+
+class StrumProgressOut(BaseModel):
+    ladder: list[int]  # 60, 80, 100, 120
+    unlock_accuracy: float
+    patterns: list[StrumPatternProgress]  # every pattern, in the chips' order
+    mastered: int  # patterns mastered (the profile)
+    top_bpm: int | None  # the fastest tempo played at ≥ 90%, any pattern
+
+
+class AdminSuggestionOut(BaseModel):
+    id: int
+    song_id: int
+    song_title: str
+    song_artist: str
+    youtube_id: str
+    user: UserBrief
+    times: list[float]  # of the events still in the song, in order
+    old_chord: ChordModel
+    new_chord: ChordModel
+    status: SuggestionStatus
+    created_at: datetime

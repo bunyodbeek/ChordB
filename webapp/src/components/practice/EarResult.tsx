@@ -53,6 +53,7 @@ export function EarResult({ result, kind, levels, wasUnlocked, busy, error, nota
   return (
     <Screen
       title={t.practice.resultTitle}
+      onBack={onLevels}
       right={<span className="ear-result-level">{t.practice.levelN(result.level)}</span>}
       bodyClassName="ear-result-body"
       after={

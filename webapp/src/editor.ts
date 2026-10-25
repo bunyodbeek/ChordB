@@ -3,6 +3,7 @@ import type { ChordJson } from "./api";
 
 export interface DraftEvent extends ChordJson {
   time_sec: number;
+  strum_pattern_id?: number | null; // a different strumming pattern from here on
 }
 
 export interface DraftSection {

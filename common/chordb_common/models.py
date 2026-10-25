@@ -144,6 +144,10 @@ class Song(Base):
         CheckConstraint("key_root BETWEEN 0 AND 11", name="ck_songs_key_root"),
         CheckConstraint("capo BETWEEN 0 AND 12", name="ck_songs_capo"),
         CheckConstraint("duration_sec > 0", name="ck_songs_duration"),
+        CheckConstraint("bpm BETWEEN 30 AND 300", name="ck_songs_bpm"),
+        CheckConstraint(
+            "time_signature IN ('2/4', '3/4', '4/4', '6/8')", name="ck_songs_time_signature"
+        ),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
@@ -155,10 +159,20 @@ class Song(Base):
     key_quality: Mapped[Quality] = mapped_column(_str_enum(Quality, "chord_quality"))
     capo: Mapped[int] = mapped_column(SmallInteger, server_default=text("0"))
     difficulty: Mapped[Difficulty] = mapped_column(_str_enum(Difficulty, "difficulty"))
+    # True: `difficulty` follows the chords (chordb_common.difficulty), recomputed whenever
+    # the timeline or capo changes; False: the admin picked it.
+    difficulty_auto: Mapped[bool] = mapped_column(server_default=text("false"))
     language: Mapped[str] = mapped_column(String(8), server_default=text("'uz'"))
     is_premium: Mapped[bool] = mapped_column(server_default=text("false"))
     is_published: Mapped[bool] = mapped_column(server_default=text("false"))
     duration_sec: Mapped[int] = mapped_column(Integer)
+    # The strumming row in the player. None = the default pattern (chordb_common.strum).
+    strum_pattern_id: Mapped[int | None] = mapped_column(
+        ForeignKey("strum_patterns.id", ondelete="SET NULL")
+    )
+    # Quarter notes per minute. None = from a finished analysis of the same video.
+    bpm: Mapped[float | None] = mapped_column(Float)
+    time_signature: Mapped[str] = mapped_column(String(5), server_default=text("'4/4'"))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -192,6 +206,60 @@ class ChordEvent(Base):
     time_sec: Mapped[float] = mapped_column(Float)
     root: Mapped[int] = mapped_column(SmallInteger)
     quality: Mapped[Quality] = mapped_column(_str_enum(Quality, "chord_quality"))
+    # A different pattern from here on, e.g. for the chorus. None = the song's.
+    strum_pattern_id: Mapped[int | None] = mapped_column(
+        ForeignKey("strum_patterns.id", ondelete="SET NULL")
+    )
+
+
+class StrumPattern(Base):
+    """One bar of eight eighth notes: D down, U up, - rest, x chuck (chordb_common.strum)."""
+
+    __tablename__ = "strum_patterns"
+    __table_args__ = (CheckConstraint("slots ~ '^[DUx-]{8}$'", name="ck_strum_patterns_slots"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(32))
+    slots: Mapped[str] = mapped_column(String(8))
+    is_premium: Mapped[bool] = mapped_column(server_default=text("false"))
+    sort: Mapped[int] = mapped_column(SmallInteger, server_default=text("0"))
+
+
+class StrumProgress(Base):
+    """A user's best accuracy with a pattern at one tempo, in the rhythm trainer."""
+
+    __tablename__ = "strum_progress"
+    __table_args__ = (
+        CheckConstraint("best_accuracy BETWEEN 0 AND 1", name="ck_strum_progress_accuracy"),
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    pattern_id: Mapped[int] = mapped_column(
+        ForeignKey("strum_patterns.id", ondelete="CASCADE"), primary_key=True
+    )
+    bpm: Mapped[int] = mapped_column(SmallInteger, primary_key=True)
+    best_accuracy: Mapped[float] = mapped_column(Float)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class UserSavedSong(Base):
+    """A song the user saved in the player (the list's "Saqlangan" chip)."""
+
+    __tablename__ = "user_saved_songs"
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    song_id: Mapped[int] = mapped_column(
+        ForeignKey("songs.id", ondelete="CASCADE"), primary_key=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class UserSongProgress(Base):
@@ -361,7 +429,7 @@ class PremiumEvent(Base):
 class UserEventType(StrEnum):
     APP_OPENED = "app_opened"
     TUNER_OPENED = "tuner_opened"
-    SONG_OPENED = "song_opened"
+    SONG_OPENED = "song_opened"  # ref = song id (empty on rows before the Asosiy page)
     PREMIUM_VIEWED = "premium_viewed"
     DEEP_LINK = "deep_link"  # opened through t.me/<bot>/<app>?startapp=song_<id>; ref = song id
     PRACTICE_STEP = "practice_step"  # ref = the step
@@ -540,3 +608,84 @@ class EarRun(Base):
         DateTime(timezone=True), server_default=func.now()
     )
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class SongKind(StrEnum):
+    SONG = "song"  # a catalog song (songs.id)
+    ANALYSIS = "analysis"  # the user's own analysed song (analyses.id)
+
+
+class UserSongSettings(Base):
+    """How a user plays a song in the player: capo, transposition, simplified chords."""
+
+    __tablename__ = "user_song_settings"
+    __table_args__ = (
+        CheckConstraint("capo BETWEEN 0 AND 12", name="ck_user_song_settings_capo"),
+        CheckConstraint("shift BETWEEN -11 AND 11", name="ck_user_song_settings_shift"),
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    kind: Mapped[SongKind] = mapped_column(_str_enum(SongKind, "song_kind"), primary_key=True)
+    ref_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    capo: Mapped[int] = mapped_column(SmallInteger)
+    shift: Mapped[int] = mapped_column(SmallInteger, server_default=text("0"))
+    simple: Mapped[bool] = mapped_column(server_default=text("false"))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class SongEventOverride(Base):
+    """A user's fix of one chord of their own analysis. Analysis.events stays as the
+    engine found it: cache hits copy it to other users."""
+
+    __tablename__ = "song_event_overrides"
+    __table_args__ = (CheckConstraint("root BETWEEN 0 AND 11", name="ck_song_event_overrides_root"),)
+
+    analysis_id: Mapped[int] = mapped_column(
+        ForeignKey("analyses.id", ondelete="CASCADE"), primary_key=True
+    )
+    event_index: Mapped[int] = mapped_column(Integer, primary_key=True)  # into Analysis.events
+    root: Mapped[int] = mapped_column(SmallInteger)
+    quality: Mapped[Quality] = mapped_column(_str_enum(Quality, "chord_quality"))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class SuggestionStatus(StrEnum):
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+
+
+class ChordSuggestion(Base):
+    """A user's correction of a catalog song's chord, for an admin to accept or reject."""
+
+    __tablename__ = "chord_suggestions"
+    __table_args__ = (
+        Index("ix_chord_suggestions_user_created", "user_id", "created_at"),
+        Index("ix_chord_suggestions_status", "status", "created_at"),
+        CheckConstraint("root BETWEEN 0 AND 11", name="ck_chord_suggestions_root"),
+        CheckConstraint("old_root BETWEEN 0 AND 11", name="ck_chord_suggestions_old_root"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    song_id: Mapped[int] = mapped_column(ForeignKey("songs.id", ondelete="CASCADE"))
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    event_ids: Mapped[list] = mapped_column(JSONB)  # [chord_events.id, …]
+    # What the first of those events had when suggested, for the admin's list.
+    old_root: Mapped[int] = mapped_column(SmallInteger)
+    old_quality: Mapped[Quality] = mapped_column(_str_enum(Quality, "chord_quality"))
+    root: Mapped[int] = mapped_column(SmallInteger)
+    quality: Mapped[Quality] = mapped_column(_str_enum(Quality, "chord_quality"))
+    status: Mapped[SuggestionStatus] = mapped_column(
+        _str_enum(SuggestionStatus, "suggestion_status"), server_default=text("'pending'")
+    )
+    decided_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )

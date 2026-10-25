@@ -27,6 +27,7 @@ from app.analysis.jobs import (
 )
 from app.analysis.youtube import parse_youtube_id, watch_url
 from app.deps import CurrentUser, Session
+from app.routes.player import analysis_out
 from app.schemas import AnalysisHistoryOut, AnalysisOut, AnalysisSummary, AnalyzeYouTubeIn
 
 router = APIRouter(prefix="/analyze", tags=["analyze"])
@@ -220,4 +221,4 @@ async def get_analysis(analysis_id: int, user: CurrentUser, session: Session) ->
     )
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "analysis not found")
-    return AnalysisOut.build(row)
+    return await analysis_out(session, user.id, row)

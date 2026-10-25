@@ -22,9 +22,10 @@ type Job =
 interface Props {
   notation: NotationKind;
   onOpen: (analysisId: number) => void;
+  onLimit: () => void; // the free daily limit was hit: the premium sheet
 }
 
-export function AnalyzeCard({ notation, onOpen }: Props) {
+export function AnalyzeCard({ notation, onOpen, onLimit }: Props) {
   const [history, setHistory] = useState<AnalysisHistory | null>(null);
   const [job, setJob] = useState<Job>({ phase: "idle" });
   const [urlOpen, setUrlOpen] = useState(false);
@@ -101,6 +102,7 @@ export function AnalyzeCard({ notation, onOpen }: Props) {
 
   const refused = (e: unknown, source: "upload" | "youtube") => {
     const code = errorCode(e);
+    if (code === "daily_limit") onLimit();
     setJob({
       phase: "error",
       message: code ? analysisErrorText(code, source, history?.daily_limit) : t.loadFailed,

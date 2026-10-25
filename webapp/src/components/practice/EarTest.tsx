@@ -7,7 +7,7 @@ import { api, ApiError, type EarFinish, type EarProgress, type EarRun } from "..
 import type { NotationKind } from "../../notation";
 import { haptic } from "../../telegram";
 import { t } from "../../texts";
-import { PremiumSheet } from "../PremiumSheet";
+import type { PremiumReason } from "../PremiumSheet";
 import { EarLevels } from "./EarLevels";
 import { EarResult } from "./EarResult";
 import { EarTestGame } from "./EarTestGame";
@@ -21,15 +21,16 @@ interface Props {
   notation: NotationKind;
   resumeRunId?: string | null; // "Davom ettirish" from the profile
   onBack: () => void;
+  isPremium: boolean;
+  onPremium: (reason: PremiumReason) => void;
 }
 
-export function EarTest({ notation, resumeRunId = null, onBack }: Props) {
+export function EarTest({ notation, resumeRunId = null, onBack, isPremium, onPremium }: Props) {
   const [view, setView] = useState<View>({ name: "levels" });
   const [progress, setProgress] = useState<EarProgress | null>(null);
   const [failed, setFailed] = useState(false);
   const [busyLevel, setBusyLevel] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [paywall, setPaywall] = useState(false);
   const resumed = useRef(false);
 
   const load = useCallback(() => {
@@ -52,7 +53,7 @@ export function EarTest({ notation, resumeRunId = null, onBack }: Props) {
         (e) => {
           setBusyLevel(null);
           // Shown on whichever screen asked: the levels map or the result.
-          if (e instanceof ApiError && e.isPaywall) setPaywall(true);
+          if (e instanceof ApiError && e.isPaywall) onPremium({ kind: "ear", level });
           else if (e instanceof ApiError && e.status === 410) {
             setError(t.practice.runExpired);
             load();
@@ -60,7 +61,7 @@ export function EarTest({ notation, resumeRunId = null, onBack }: Props) {
         },
       );
     },
-    [unlocked, load],
+    [unlocked, load, onPremium],
   );
 
   const start = useCallback(
@@ -137,16 +138,13 @@ export function EarTest({ notation, resumeRunId = null, onBack }: Props) {
         notation={notation}
         onStart={start}
         onResume={resume}
+        isPremium={isPremium}
+        onPremium={(level) => onPremium({ kind: "ear", level })}
         onRetry={load}
         onBack={onBack}
       />
     );
   }
 
-  return (
-    <>
-      {screen}
-      {paywall && <PremiumSheet onClose={() => setPaywall(false)} />}
-    </>
-  );
+  return screen;
 }

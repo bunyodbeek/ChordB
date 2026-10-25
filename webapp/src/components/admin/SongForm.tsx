@@ -9,7 +9,8 @@ import { haptic, useBackButton } from "../../telegram";
 import { formatTime } from "../../timeline";
 import { t } from "../../texts";
 
-const DIFFICULTIES: Difficulty[] = ["easy", "medium", "hard"];
+// "auto": from the chords (akkordlar soni, barre) and capo, kept up to date by the server.
+const DIFFICULTIES: (Difficulty | "auto")[] = ["auto", "easy", "medium", "hard"];
 const LANGUAGES = ["uz", "ru", "en"];
 const MAX_CAPO = 12;
 
@@ -30,7 +31,7 @@ export function SongForm({ songId, notation, onBack, onCreated, onMarkChords }: 
   const [keyRoot, setKeyRoot] = useState(9);
   const [keyMinor, setKeyMinor] = useState(true);
   const [capo, setCapo] = useState(0);
-  const [difficulty, setDifficulty] = useState<Difficulty>("easy");
+  const [difficulty, setDifficulty] = useState<Difficulty | "auto">("auto");
   const [language, setLanguage] = useState("uz");
   const [premium, setPremium] = useState(false);
   const [duration, setDuration] = useState("");
@@ -51,7 +52,7 @@ export function SongForm({ songId, notation, onBack, onCreated, onMarkChords }: 
         setKeyRoot(s.key.root);
         setKeyMinor(s.key.quality === "min");
         setCapo(s.capo);
-        setDifficulty(s.difficulty);
+        setDifficulty(s.difficulty_auto ? "auto" : s.difficulty);
         setLanguage(s.language);
         setPremium(s.is_premium);
         setDuration(formatTime(s.duration_sec));
@@ -205,7 +206,7 @@ export function SongForm({ songId, notation, onBack, onCreated, onMarkChords }: 
                   className={difficulty === d ? "selected" : ""}
                   onClick={() => setDifficulty(d)}
                 >
-                  {t.songs.levels[d]}
+                  {d === "auto" ? t.songs.levelAuto : t.songs.levels[d]}
                 </button>
               ))}
             </div>

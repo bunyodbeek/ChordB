@@ -190,7 +190,9 @@ async def test_update_song(client: httpx.AsyncClient) -> None:
     ],
 )
 async def test_timeline_rejects(client: httpx.AsyncClient, timeline: dict, reason: str) -> None:
-    sid = (await client.post("/api/admin/songs", headers=auth(ADMIN), json=song_body())).json()["id"]
+    sid = (await client.post("/api/admin/songs", headers=auth(ADMIN), json=song_body())).json()[
+        "id"
+    ]
     r = await client.put(f"/api/admin/songs/{sid}/events", headers=auth(ADMIN), json=timeline)
     assert r.status_code == 422
     assert reason in r.json()["detail"]
@@ -228,11 +230,66 @@ async def test_filters_and_search(client: httpx.AsyncClient) -> None:
     assert await ids(uzbek=True) == {a["id"], c["id"]}
     assert await ids(no_capo=True) == {a["id"], c["id"]}
     assert await ids(uzbek=True, easy=True) == {a["id"]}
+    assert await ids(difficulty="medium") == {b["id"]}
+    assert await ids(difficulty="hard") == {c["id"]}
     assert await ids(q="tsoy") == {b["id"]}  # artist, case-insensitive
     assert await ids(q="BAH") == {a["id"]}  # title
     assert await ids(q="100%") == {c["id"]}  # % is literal, not a wildcard
     assert await ids(q="%") == {c["id"]}
     assert await ids(q="nothing like this") == set()
+
+
+async def test_saved_songs(client: httpx.AsyncClient) -> None:
+    a = await published_song(client, title="Bahor")
+    b = await published_song(client, title="Kino", is_premium=True)  # locked: still savable
+
+    async def saved(user_id: int = USER) -> set[int]:
+        r = await client.get("/api/songs", headers=auth(user_id), params={"saved": True})
+        assert r.status_code == 200
+        return {s["id"] for s in r.json()["songs"]}
+
+    assert await saved() == set()
+    for sid in (a["id"], b["id"], b["id"]):  # twice is fine
+        r = await client.put(f"/api/songs/{sid}/saved", headers=auth())
+        assert r.status_code == 204
+    assert await saved() == {a["id"], b["id"]}
+    assert await saved(ADMIN) == set()  # per user
+    listed = {
+        s["id"]: s["saved"]
+        for s in (await client.get("/api/songs", headers=auth())).json()["songs"]
+    }
+    assert listed == {a["id"]: True, b["id"]: True}
+
+    assert (await client.delete(f"/api/songs/{a['id']}/saved", headers=auth())).status_code == 204
+    assert await saved() == {b["id"]}
+    assert (await client.put("/api/songs/999999/saved", headers=auth())).status_code == 404
+
+
+async def test_auto_difficulty(client: httpx.AsyncClient) -> None:
+    r = await client.post(
+        "/api/admin/songs", headers=auth(ADMIN), json=song_body(difficulty="auto")
+    )
+    song = r.json()
+    assert (song["difficulty"], song["difficulty_auto"]) == ("easy", True)
+    sid = song["id"]
+
+    # Am F C G: F is a barre → medium.
+    r = await client.put(f"/api/admin/songs/{sid}/events", headers=auth(ADMIN), json=TIMELINE)
+    assert r.json()["difficulty"] == "medium"
+    # Capo 4: the shapes become Fm C# G# D#, all barres → hard.
+    r = await client.patch(f"/api/admin/songs/{sid}", headers=auth(ADMIN), json={"capo": 4})
+    assert r.json()["difficulty"] == "hard"
+    # The admin's pick sticks, through timeline changes too.
+    r = await client.patch(
+        f"/api/admin/songs/{sid}", headers=auth(ADMIN), json={"difficulty": "easy"}
+    )
+    assert (r.json()["difficulty"], r.json()["difficulty_auto"]) == ("easy", False)
+    r = await client.put(f"/api/admin/songs/{sid}/events", headers=auth(ADMIN), json=TIMELINE)
+    assert r.json()["difficulty"] == "easy"
+    r = await client.patch(
+        f"/api/admin/songs/{sid}", headers=auth(ADMIN), json={"difficulty": "auto"}
+    )
+    assert (r.json()["difficulty"], r.json()["difficulty_auto"]) == ("hard", True)
 
 
 async def test_premium_paywall(client: httpx.AsyncClient, sessionmaker) -> None:
@@ -268,14 +325,18 @@ async def test_continue_playing(client: httpx.AsyncClient) -> None:
     assert r.json()["continue_playing"] is None
 
     assert (
-        await client.put(f"/api/songs/{a['id']}/progress", headers=auth(), json={"position_sec": 30})
+        await client.put(
+            f"/api/songs/{a['id']}/progress", headers=auth(), json={"position_sec": 30}
+        )
     ).status_code == 204
     await client.put(f"/api/songs/{b['id']}/progress", headers=auth(), json={"position_sec": 61.5})
 
     cont = (await client.get("/api/songs", headers=auth())).json()["continue_playing"]
     assert (cont["song"]["id"], cont["position_sec"]) == (b["id"], 61.5)
     assert cont["song"]["chords_preview"] == [AM, F, C, G]
-    assert (await client.get(f"/api/songs/{b['id']}", headers=auth())).json()["position_sec"] == 61.5
+    assert (await client.get(f"/api/songs/{b['id']}", headers=auth())).json()[
+        "position_sec"
+    ] == 61.5
 
     # Updating A makes it the most recent; finishing it falls back to B.
     await client.put(f"/api/songs/{a['id']}/progress", headers=auth(), json={"position_sec": 40})

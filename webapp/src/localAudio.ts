@@ -37,6 +37,7 @@ export function createAudioPlayer(
     setPlaybackRate: (rate) => {
       audio.playbackRate = rate;
     },
+    getPlaybackRate: () => audio.playbackRate,
     destroy: () => {
       audio.pause();
       audio.removeAttribute("src");

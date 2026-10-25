@@ -45,6 +45,7 @@ function detail(over: Partial<AnalysisDetail> = {}): AnalysisDetail {
     chords_preview: [AM, F], created_at: "", finished_at: "",
     tuning_offset_cents: 0, alt_tuning: null, suggested_capo: 0,
     beats: [0.5, 1.1],
+    settings: null,
     events: [
       { start_sec: 0, end_sec: 4, chord: AM, confidence: 0.9 },
       { start_sec: 4, end_sec: 9, chord: null, confidence: 0.6 },
@@ -61,6 +62,19 @@ describe("analysisTimeline", () => {
     expect(tl.sections).toEqual([{ id: 1, title: "1-qism", start_sec: 0 }]);
     expect(tl.beats).toEqual([0.5, 1.1]);
     expect(tl.durationSec).toBe(12.5); // covers the last segment
+  });
+
+  it("marks the chords the detector was unsure of, never a no-chord gap", () => {
+    const tl = analysisTimeline(
+      detail({
+        events: [
+          { start_sec: 0, end_sec: 4, chord: AM, confidence: 0.49 },
+          { start_sec: 4, end_sec: 9, chord: null, confidence: 0.2 },
+          { start_sec: 9, end_sec: 12.5, chord: F, confidence: 0.5 },
+        ],
+      }),
+    );
+    expect(tl.events.map((e) => !!e.unsure)).toEqual([true, false, false]);
   });
 
   it("copes with an empty result", () => {
