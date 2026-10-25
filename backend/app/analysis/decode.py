@@ -4,7 +4,7 @@ Vocabulary: 12 major + 12 minor triads + N (no chord). State i < 12 is major wit
 root i, 12 <= i < 24 is minor with root i - 12, and 24 is N.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import librosa
 import numpy as np
@@ -25,21 +25,18 @@ class DecodeConfig:
     key_boost: float = 1.5
     # Emission multiplier for every other chord (N is never penalised).
     non_diatonic: float = 0.9
-    # Viterbi probability of staying on the same chord from one beat to the next.
+    # Viterbi probability of staying on the same chord from one beat to the next (per
+    # beat: with half-beat steps each step stays with its square root).
     self_transition: float = 0.85
     # Softmax temperature turning cosine similarities into emission probabilities.
     temperature: float = 0.05
     # The N template's similarity is scaled by this; lower = N chosen less often.
     n_weight: float = 0.85
+    # Added to a chord's similarity when its root is the bass note (bass chroma 0..1).
+    bass_weight: float = 0.1
 
     def without_key_prior(self) -> "DecodeConfig":
-        return DecodeConfig(
-            key_boost=1.0,
-            non_diatonic=1.0,
-            self_transition=self.self_transition,
-            temperature=self.temperature,
-            n_weight=self.n_weight,
-        )
+        return replace(self, key_boost=1.0, non_diatonic=1.0)
 
 
 @dataclass(frozen=True)
@@ -122,11 +119,28 @@ def diatonic_states(key: Key) -> set[int]:
     return {chord_state(r + i, q) for i, q in chords}
 
 
-def emissions(sim: np.ndarray, quiet: np.ndarray, key: Key | None, cfg: DecodeConfig) -> np.ndarray:
-    """(25, T) per-beat state probabilities, columns summing to 1.
+def bass_bonus(bass: np.ndarray) -> np.ndarray:
+    """(25, T): each chord's bass chroma at its root, less the chords' average, so the bass
+    moves chords against each other but not against N (0)."""
+    roots = np.arange(N_STATE) % 12
+    out = np.zeros((N_STATES, bass.shape[1]))
+    out[:N_STATE] = bass[roots] - bass[roots].mean(axis=0, keepdims=True)
+    return out
 
-    `quiet` marks beats with too little energy to judge; they are forced to N.
+
+def emissions(
+    sim: np.ndarray,
+    quiet: np.ndarray,
+    key: Key | None,
+    cfg: DecodeConfig,
+    bass: np.ndarray | None = None,
+) -> np.ndarray:
+    """(25, T) per-step state probabilities, columns summing to 1.
+
+    `quiet` marks steps with too little energy to judge; they are forced to N.
     """
+    if bass is not None and cfg.bass_weight:
+        sim = sim + cfg.bass_weight * bass_bonus(bass)
     logits = sim / cfg.temperature
     p = np.exp(logits - logits.max(axis=0, keepdims=True))
     if key is not None:
@@ -202,10 +216,12 @@ def decode(
     key: Key | None,
     cfg: DecodeConfig,
     min_duration: float,
+    bass: np.ndarray | None = None,
+    steps_per_beat: int = 1,
 ) -> list[Segment]:
-    """Beat chroma (12, T) with T+1 time bounds -> merged chord segments."""
+    """Step chroma (12, T) with T+1 time bounds -> merged chord segments."""
     if chroma.shape[1] == 0:
         return []
-    prob = emissions(similarities(chroma, cfg.n_weight), quiet, key, cfg)
-    path = viterbi(prob, cfg.self_transition)
+    prob = emissions(similarities(chroma, cfg.n_weight), quiet, key, cfg, bass)
+    path = viterbi(prob, cfg.self_transition ** (1 / steps_per_beat))
     return merge_segments(segments_from_path(path, prob, bounds), min_duration)

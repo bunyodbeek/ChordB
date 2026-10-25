@@ -13,6 +13,7 @@ from app.analysis.decode import (
     DecodeConfig,
     Key,
     Segment,
+    bass_bonus,
     chord_state,
     decode,
     diatonic_states,
@@ -24,7 +25,7 @@ from app.analysis.decode import (
     templates,
     viterbi,
 )
-from app.analysis.engine import decode_features, extract_features, fill_gaps
+from app.analysis.engine import decode_features, extract_features, fill_gaps, step_bounds
 from app.analysis.evaluate import accuracy, ground_truth_beats, reduce_symbol
 from app.analysis.synth import DEMO, render
 from chordb_common.models import Quality
@@ -144,6 +145,35 @@ def test_viterbi_smooths_a_one_beat_glitch():
     assert set(viterbi(prob, cfg.self_transition)) == {chord_state(9, MIN)}
     # With no stickiness the glitch survives.
     assert chord_state(0, MAJ) in set(viterbi(prob, 1 / 25))
+
+
+def test_bass_tells_am_from_c():
+    # A C E G: as much Am as C. The bass note decides.
+    chroma = chroma_of(9, 0, 4, 7)[:, None]
+    cfg = DecodeConfig()
+    sim = similarities(chroma, cfg.n_weight)
+    quiet = np.zeros(1, bool)
+    for bass_note, chord in ((0, chord_state(0, MAJ)), (9, chord_state(9, MIN))):
+        prob = emissions(sim, quiet, None, cfg, chroma_of(bass_note)[:, None])
+        assert np.argmax(prob[:, 0]) == chord
+    # No bass: the bonus is nothing, and it never moves N.
+    assert not bass_bonus(np.zeros((12, 1))).any()
+    assert bass_bonus(chroma_of(9)[:, None])[N_STATE, 0] == 0
+
+
+def test_a_change_on_the_and_starts_on_the_and():
+    # Half-beat steps 0.25 s apart; Am, then F from the "&" of the second beat on.
+    am, f = triad(9, MIN), triad(5, MAJ)
+    chroma = np.stack([am] * 3 + [f] * 5, axis=1)
+    bounds = np.arange(9) * 0.25
+    segs = decode(chroma, np.zeros(8, bool), bounds, None, DecodeConfig(), 0.49, steps_per_beat=2)
+    assert [(s.start_sec, s.state) for s in segs] == [(0, chord_state(9, MIN)), (0.75, chord_state(5, MAJ))]
+
+
+def test_step_bounds_split_each_beat():
+    assert list(step_bounds(np.array([10, 20]), 30, 2)) == [0, 5, 10, 15, 20, 25, 30]
+    assert list(step_bounds(np.array([10, 20]), 30, 1)) == [0, 10, 20, 30]
+    assert list(step_bounds(np.array([1, 20]), 21, 2)) == [0, 1, 10, 20, 21]  # no empty steps
 
 
 def seg(a, b, state, conf=1.0):
